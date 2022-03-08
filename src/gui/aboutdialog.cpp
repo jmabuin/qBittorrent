@@ -30,6 +30,8 @@
 
 #include <QFile>
 
+#include "base/global.h"
+#include "base/path.h"
 #include "base/unicodestrings.h"
 #include "base/utils/misc.h"
 #include "base/version.h"
@@ -70,7 +72,7 @@ AboutDialog::AboutDialog(QWidget *parent)
             , tr("Bug Tracker:"));
     m_ui->labelAbout->setText(aboutText);
 
-    m_ui->labelMascot->setPixmap(Utils::Gui::scaledPixmap(":/icons/mascot.png", this));
+    m_ui->labelMascot->setPixmap(Utils::Gui::scaledPixmap(Path(u":/icons/mascot.png"_qs), this));
 
     // Thanks
     QFile thanksfile(":/thanks.html");

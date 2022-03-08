@@ -28,6 +28,7 @@
 
 #include "mainwindow.h"
 
+#include <algorithm>
 #include <chrono>
 
 #include <QActionGroup>
@@ -57,6 +58,7 @@
 #include "base/bittorrent/sessionstatus.h"
 #include "base/global.h"
 #include "base/net/downloadmanager.h"
+#include "base/path.h"
 #include "base/preferences.h"
 #include "base/rss/rss_folder.h"
 #include "base/rss/rss_session.h"
@@ -114,7 +116,7 @@ namespace
     bool isTorrentLink(const QString &str)
     {
         return str.startsWith(QLatin1String("magnet:"), Qt::CaseInsensitive)
-            || str.endsWith(QLatin1String(C_TORRENT_FILE_EXTENSION), Qt::CaseInsensitive)
+            || str.endsWith(TORRENT_FILE_EXTENSION, Qt::CaseInsensitive)
             || (!str.startsWith(QLatin1String("file:"), Qt::CaseInsensitive)
                 && Net::DownloadManager::hasSupportedScheme(str));
     }
@@ -241,13 +243,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(BitTorrent::Session::instance(), &BitTorrent::Session::trackersAdded, m_transferListFiltersWidget, &TransferListFiltersWidget::addTrackers);
     connect(BitTorrent::Session::instance(), &BitTorrent::Session::trackersRemoved, m_transferListFiltersWidget, &TransferListFiltersWidget::removeTrackers);
     connect(BitTorrent::Session::instance(), &BitTorrent::Session::trackerlessStateChanged, m_transferListFiltersWidget, &TransferListFiltersWidget::changeTrackerless);
-
-    connect(BitTorrent::Session::instance(), &BitTorrent::Session::trackerSuccess
-        , m_transferListFiltersWidget, qOverload<const BitTorrent::Torrent *, const QString &>(&TransferListFiltersWidget::trackerSuccess));
-    connect(BitTorrent::Session::instance(), &BitTorrent::Session::trackerError
-        , m_transferListFiltersWidget, qOverload<const BitTorrent::Torrent *, const QString &>(&TransferListFiltersWidget::trackerError));
-    connect(BitTorrent::Session::instance(), &BitTorrent::Session::trackerWarning
-        , m_transferListFiltersWidget, qOverload<const BitTorrent::Torrent *, const QString &>(&TransferListFiltersWidget::trackerWarning));
+    connect(BitTorrent::Session::instance(), &BitTorrent::Session::trackerEntriesUpdated, m_transferListFiltersWidget, &TransferListFiltersWidget::trackerEntriesUpdated);
 
 #ifdef Q_OS_MACOS
     // Increase top spacing to avoid tab overlapping
@@ -601,9 +597,9 @@ void MainWindow::manageCookies()
     cookieDialog->open();
 }
 
-void MainWindow::toolbarMenuRequested(const QPoint &point)
+void MainWindow::toolbarMenuRequested()
 {
-    m_toolbarMenu->popup(m_ui->toolBar->mapToGlobal(point));
+    m_toolbarMenu->popup(QCursor::pos());
 }
 
 void MainWindow::toolbarIconsOnly()
@@ -708,7 +704,7 @@ void MainWindow::displayRSSTab(bool enable)
     }
 }
 
-void MainWindow::showFilterContextMenu(const QPoint &)
+void MainWindow::showFilterContextMenu()
 {
     const Preferences *pref = Preferences::instance();
 
@@ -1235,6 +1231,7 @@ void MainWindow::closeEvent(QCloseEvent *e)
 #ifndef Q_OS_MACOS
     if (m_systrayIcon)
     {
+        m_systrayIcon->disconnect();
         m_systrayIcon->setToolTip(tr("qBittorrent is shutting down..."));
         m_trayIconMenu->setEnabled(false);
     }
@@ -1248,10 +1245,10 @@ void MainWindow::closeEvent(QCloseEvent *e)
 // Display window to create a torrent
 void MainWindow::on_actionCreateTorrent_triggered()
 {
-    createTorrentTriggered();
+    createTorrentTriggered({});
 }
 
-void MainWindow::createTorrentTriggered(const QString &path)
+void MainWindow::createTorrentTriggered(const Path &path)
 {
     if (m_createTorrentDlg)
     {
@@ -1259,7 +1256,9 @@ void MainWindow::createTorrentTriggered(const QString &path)
         m_createTorrentDlg->activateWindow();
     }
     else
+    {
         m_createTorrentDlg = new TorrentCreatorDialog(this, path);
+    }
 }
 
 bool MainWindow::event(QEvent *e)
@@ -1279,15 +1278,9 @@ bool MainWindow::event(QEvent *e)
             {
                 qDebug() << "Has active window:" << (qApp->activeWindow() != nullptr);
                 // Check if there is a modal window
-                bool hasModalWindow = false;
-                for (QWidget *widget : asConst(QApplication::allWidgets()))
-                {
-                    if (widget->isModal())
-                    {
-                        hasModalWindow = true;
-                        break;
-                    }
-                }
+                const QWidgetList allWidgets = QApplication::allWidgets();
+                const bool hasModalWindow = std::any_of(allWidgets.cbegin(), allWidgets.cend()
+                    , [](const QWidget *widget) { return widget->isModal(); });
                 // Iconify if there is no modal window
                 if (!hasModalWindow)
                 {
@@ -1371,7 +1364,7 @@ void MainWindow::dropEvent(QDropEvent *event)
     // Create torrent
     for (const QString &file : asConst(otherFiles))
     {
-        createTorrentTriggered(file);
+        createTorrentTriggered(Path(file));
 
         // currently only handle the first entry
         // this is a stub that can be expanded later to create many torrents at once
@@ -1427,8 +1420,8 @@ void MainWindow::on_actionOpen_triggered()
     // Open File Open Dialog
     // Note: it is possible to select more than one file
     const QStringList pathsList =
-        QFileDialog::getOpenFileNames(this, tr("Open Torrent Files"), pref->getMainLastDir(),
-                                      tr("Torrent Files") + " (*" + C_TORRENT_FILE_EXTENSION + ')');
+        QFileDialog::getOpenFileNames(this, tr("Open Torrent Files"), pref->getMainLastDir().data(),
+                                      tr("Torrent Files") + u" (*" + TORRENT_FILE_EXTENSION + u')');
 
     if (pathsList.isEmpty())
         return;
@@ -1444,9 +1437,9 @@ void MainWindow::on_actionOpen_triggered()
     }
 
     // Save last dir to remember it
-    QString topDir = Utils::Fs::toUniformPath(pathsList.at(0));
-    topDir = topDir.left(topDir.lastIndexOf('/'));
-    pref->setMainLastDir(topDir);
+    const Path topDir {pathsList.at(0)};
+    const Path parentDir = topDir.parentPath();
+    pref->setMainLastDir(parentDir.isEmpty() ? topDir : parentDir);
 }
 
 void MainWindow::activate()
@@ -2114,9 +2107,9 @@ void MainWindow::pythonDownloadFinished(const Net::DownloadResult &result)
     QProcess installer;
     qDebug("Launching Python installer in passive mode...");
 
-    const QString exePath = result.filePath + QLatin1String(".exe");
-    QFile::rename(result.filePath, exePath);
-    installer.start(Utils::Fs::toNativePath(exePath), {"/passive"});
+    const Path exePath = result.filePath + ".exe";
+    Utils::Fs::renameFile(result.filePath, exePath);
+    installer.start(exePath.toString(), {"/passive"});
 
     // Wait for setup to complete
     installer.waitForFinished(10 * 60 * 1000);
@@ -2126,7 +2119,7 @@ void MainWindow::pythonDownloadFinished(const Net::DownloadResult &result)
     qDebug("Setup should be complete!");
 
     // Delete temp file
-    Utils::Fs::forceRemove(exePath);
+    Utils::Fs::removeFile(exePath);
 
     // Reload search engine
     if (Utils::ForeignApps::pythonInfo().isSupportedVersion())

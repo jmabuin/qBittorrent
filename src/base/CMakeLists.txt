@@ -17,6 +17,7 @@ add_library(qbt_base STATIC
     bittorrent/filterparserthread.h
     bittorrent/infohash.h
     bittorrent/loadtorrentparams.h
+    bittorrent/ltqbitarray.h
     bittorrent/ltqhash.h
     bittorrent/lttypecast.h
     bittorrent/magneturi.h
@@ -61,6 +62,8 @@ add_library(qbt_base STATIC
     net/reverseresolution.h
     net/smtp.h
     orderedset.h
+    path.h
+    pathfwd.h
     preferences.h
     profile.h
     profile_p.h
@@ -108,6 +111,7 @@ add_library(qbt_base STATIC
     bittorrent/filesearcher.cpp
     bittorrent/filterparserthread.cpp
     bittorrent/infohash.cpp
+    bittorrent/ltqbitarray.cpp
     bittorrent/magneturi.cpp
     bittorrent/nativesessionextension.cpp
     bittorrent/nativetorrentextension.cpp
@@ -142,6 +146,7 @@ add_library(qbt_base STATIC
     net/proxyconfigurationmanager.cpp
     net/reverseresolution.cpp
     net/smtp.cpp
+    path.cpp
     preferences.cpp
     profile.cpp
     profile_p.cpp

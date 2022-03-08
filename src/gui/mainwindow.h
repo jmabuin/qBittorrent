@@ -112,7 +112,7 @@ signals:
     void systemTrayIconCreated();
 
 private slots:
-    void showFilterContextMenu(const QPoint &);
+    void showFilterContextMenu();
     void balloonClicked();
     void writeSettings();
     void readSettings();
@@ -181,7 +181,7 @@ private slots:
     // Check for unpaused downloading or seeding torrents and prevent system suspend/sleep according to preferences
     void updatePowerManagementState();
 
-    void toolbarMenuRequested(const QPoint &point);
+    void toolbarMenuRequested();
     void toolbarIconsOnly();
     void toolbarTextOnly();
     void toolbarTextBeside();
@@ -212,7 +212,7 @@ private:
     bool event(QEvent *e) override;
     void displayRSSTab(bool enable);
     void displaySearchTab(bool enable);
-    void createTorrentTriggered(const QString &path = {});
+    void createTorrentTriggered(const Path &path);
     void showStatusBar(bool show);
 
     Ui::MainWindow *m_ui;

@@ -34,7 +34,6 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QModelIndexList>
-#include <QTableView>
 #include <QThread>
 
 #include "base/bittorrent/abstractfilestorage.h"
@@ -44,6 +43,7 @@
 #include "base/bittorrent/torrentinfo.h"
 #include "base/exceptions.h"
 #include "base/global.h"
+#include "base/path.h"
 #include "base/utils/fs.h"
 #include "autoexpandabledialog.h"
 #include "raisedmessagebox.h"
@@ -52,12 +52,12 @@
 
 namespace
 {
-    QString getFullPath(const QModelIndex &idx)
+    Path getFullPath(const QModelIndex &idx)
     {
-        QStringList paths;
+        Path path;
         for (QModelIndex i = idx; i.isValid(); i = i.parent())
-            paths.prepend(i.data().toString());
-        return paths.join(QLatin1Char {'/'});
+            path = Path(i.data().toString()) / path;
+        return path;
     }
 }
 
@@ -65,15 +65,7 @@ TorrentContentTreeView::TorrentContentTreeView(QWidget *parent)
     : QTreeView(parent)
 {
     setExpandsOnDoubleClick(false);
-
-    // This hack fixes reordering of first column with Qt5.
-    // https://github.com/qtproject/qtbase/commit/e0fc088c0c8bc61dbcaf5928b24986cd61a22777
-    QTableView unused;
-    unused.setVerticalHeader(header());
-    header()->setParent(this);
-    header()->setStretchLastSection(false);
-    header()->setTextElideMode(Qt::ElideRight);
-    unused.setVerticalHeader(new QHeaderView(Qt::Horizontal));
+    header()->setFirstSectionMovable(true);
 }
 
 void TorrentContentTreeView::keyPressEvent(QKeyEvent *event)
@@ -130,9 +122,9 @@ void TorrentContentTreeView::renameSelectedFile(BitTorrent::AbstractFileStorage 
     if (newName == oldName)
         return;  // Name did not change
 
-    const QString parentPath = getFullPath(modelIndex.parent());
-    const QString oldPath {parentPath.isEmpty() ? oldName : parentPath + QLatin1Char {'/'} + oldName};
-    const QString newPath {parentPath.isEmpty() ? newName : parentPath + QLatin1Char {'/'} + newName};
+    const Path parentPath = getFullPath(modelIndex.parent());
+    const Path oldPath = parentPath / Path(oldName);
+    const Path newPath = parentPath / Path(newName);
 
     try
     {

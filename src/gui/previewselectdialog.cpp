@@ -28,14 +28,15 @@
 
 #include "previewselectdialog.h"
 
+#include <QAction>
 #include <QDir>
 #include <QFile>
 #include <QHeaderView>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QShowEvent>
 #include <QStandardItemModel>
-#include <QTableView>
 
 #include "base/bittorrent/torrent.h"
 #include "base/preferences.h"
@@ -75,28 +76,21 @@ PreviewSelectDialog::PreviewSelectDialog(QWidget *parent, const BitTorrent::Torr
     m_previewListModel->setHeaderData(SIZE, Qt::Horizontal, tr("Size"));
     m_previewListModel->setHeaderData(PROGRESS, Qt::Horizontal, tr("Progress"));
 
-    // This hack fixes reordering of first column with Qt5.
-    // https://github.com/qtproject/qtbase/commit/e0fc088c0c8bc61dbcaf5928b24986cd61a22777
-    QTableView unused;
-    unused.setVerticalHeader(m_ui->previewList->header());
-    m_ui->previewList->header()->setParent(m_ui->previewList);
-    unused.setVerticalHeader(new QHeaderView(Qt::Horizontal));
-
+    m_ui->previewList->setAlternatingRowColors(pref->useAlternatingRowColors());
     m_ui->previewList->setModel(m_previewListModel);
     m_ui->previewList->hideColumn(FILE_INDEX);
     m_listDelegate = new PreviewListDelegate(this);
     m_ui->previewList->setItemDelegate(m_listDelegate);
-    m_ui->previewList->setAlternatingRowColors(pref->useAlternatingRowColors());
     // Fill list in
     const QVector<qreal> fp = torrent->filesProgress();
     for (int i = 0; i < torrent->filesCount(); ++i)
     {
-        const QString fileName = Utils::Fs::fileName(torrent->filePath(i));
-        if (Utils::Misc::isPreviewable(fileName))
+        const Path filePath = torrent->filePath(i);
+        if (Utils::Misc::isPreviewable(filePath))
         {
             int row = m_previewListModel->rowCount();
             m_previewListModel->insertRow(row);
-            m_previewListModel->setData(m_previewListModel->index(row, NAME), fileName);
+            m_previewListModel->setData(m_previewListModel->index(row, NAME), filePath.filename());
             m_previewListModel->setData(m_previewListModel->index(row, SIZE), torrent->fileSize(i));
             m_previewListModel->setData(m_previewListModel->index(row, PROGRESS), fp[i]);
             m_previewListModel->setData(m_previewListModel->index(row, FILE_INDEX), i);
@@ -104,8 +98,12 @@ PreviewSelectDialog::PreviewSelectDialog(QWidget *parent, const BitTorrent::Torr
     }
 
     m_previewListModel->sort(NAME);
+    m_ui->previewList->header()->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_ui->previewList->header()->setFirstSectionMovable(true);
     m_ui->previewList->header()->setSortIndicator(0, Qt::AscendingOrder);
     m_ui->previewList->selectionModel()->select(m_previewListModel->index(0, NAME), QItemSelectionModel::Select | QItemSelectionModel::Rows);
+
+    connect(m_ui->previewList->header(), &QWidget::customContextMenuRequested, this, &PreviewSelectDialog::displayColumnHeaderMenu);
 
     // Restore dialog state
     loadWindowState();
@@ -128,14 +126,14 @@ void PreviewSelectDialog::previewButtonClicked()
 
     // Only one file should be selected
     const int fileIndex = selectedIndexes.at(0).data().toInt();
-    const QString path = QDir(m_torrent->actualStorageLocation()).absoluteFilePath(m_torrent->actualFilePath(fileIndex));
+    const Path path = m_torrent->actualStorageLocation() / m_torrent->actualFilePath(fileIndex);
     // File
-    if (!QFile::exists(path))
+    if (!path.exists())
     {
         const bool isSingleFile = (m_previewListModel->rowCount() == 1);
         QWidget *parent = isSingleFile ? this->parentWidget() : this;
         QMessageBox::critical(parent, tr("Preview impossible")
-            , tr("Sorry, we can't preview this file: \"%1\".").arg(Utils::Fs::toNativePath(path)));
+            , tr("Sorry, we can't preview this file: \"%1\".").arg(path.toString()));
         if (isSingleFile)
             reject();
         return;
@@ -143,6 +141,25 @@ void PreviewSelectDialog::previewButtonClicked()
 
     emit readyToPreviewFile(path);
     accept();
+}
+
+void PreviewSelectDialog::displayColumnHeaderMenu()
+{
+    auto menu = new QMenu(this);
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    menu->setToolTipsVisible(true);
+
+    QAction *resizeAction = menu->addAction(tr("Resize columns"), this, [this]()
+    {
+        for (int i = 0, count = m_ui->previewList->header()->count(); i < count; ++i)
+        {
+            if (!m_ui->previewList->isColumnHidden(i))
+                m_ui->previewList->resizeColumnToContents(i);
+        }
+    });
+    resizeAction->setToolTip(tr("Resize all non-hidden columns to the size of their contents"));
+
+    menu->popup(QCursor::pos());
 }
 
 void PreviewSelectDialog::saveWindowState()

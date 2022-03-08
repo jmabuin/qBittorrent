@@ -151,8 +151,8 @@ void WebApplication::sendWebUIFile()
     {
         if (request().path.startsWith(PATH_PREFIX_ICONS))
         {
-            const QString imageFilename {request().path.mid(PATH_PREFIX_ICONS.size())};
-            sendFile(QLatin1String(":/icons/") + imageFilename);
+            const Path imageFilename {request().path.mid(PATH_PREFIX_ICONS.size())};
+            sendFile(Path(u":/icons"_qs) / imageFilename);
             return;
         }
     }
@@ -164,20 +164,13 @@ void WebApplication::sendWebUIFile()
                 : QLatin1String("/index.html"))
     };
 
-    QString localPath
-    {
-        m_rootFolder
-                + (session() ? PRIVATE_FOLDER : PUBLIC_FOLDER)
-                + path
-    };
-
-    QFileInfo fileInfo {localPath};
-
-    if (!fileInfo.exists() && session())
+    Path localPath = m_rootFolder
+                / Path(session() ? PRIVATE_FOLDER : PUBLIC_FOLDER)
+                / Path(path);
+    if (!localPath.exists() && session())
     {
         // try to send public file if there is no private one
-        localPath = m_rootFolder + PUBLIC_FOLDER + path;
-        fileInfo.setFile(localPath);
+        localPath = m_rootFolder / Path(PUBLIC_FOLDER) / Path(path);
     }
 
     if (m_isAltUIUsed)
@@ -191,7 +184,8 @@ void WebApplication::sendWebUIFile()
         }
 #endif
 
-        while (fileInfo.filePath() != m_rootFolder)
+        QFileInfo fileInfo {localPath.data()};
+        while (Path(fileInfo.filePath()) != m_rootFolder)
         {
             if (fileInfo.isSymLink())
                 throw InternalServerErrorHTTPError(tr("Symlinks inside alternative UI folder are forbidden."));
@@ -320,8 +314,7 @@ void WebApplication::configure()
     const auto *pref = Preferences::instance();
 
     const bool isAltUIUsed = pref->isAltWebUiEnabled();
-    const QString rootFolder = Utils::Fs::expandPathAbs(
-                !isAltUIUsed ? WWW_FOLDER : pref->getWebUiRootFolder());
+    const Path rootFolder = (!isAltUIUsed ? Path(WWW_FOLDER) : pref->getWebUiRootFolder());
     if ((isAltUIUsed != m_isAltUIUsed) || (rootFolder != m_rootFolder))
     {
         m_isAltUIUsed = isAltUIUsed;
@@ -330,7 +323,7 @@ void WebApplication::configure()
         if (!m_isAltUIUsed)
             LogMsg(tr("Using built-in Web UI."));
         else
-            LogMsg(tr("Using custom Web UI. Location: \"%1\".").arg(m_rootFolder));
+            LogMsg(tr("Using custom Web UI. Location: \"%1\".").arg(m_rootFolder.toString()));
     }
 
     const QString newLocale = pref->getLocale();
@@ -339,7 +332,7 @@ void WebApplication::configure()
         m_currentLocale = newLocale;
         m_translatedFiles.clear();
 
-        m_translationFileLoaded = m_translator.load(m_rootFolder + QLatin1String("/translations/webui_") + newLocale);
+        m_translationFileLoaded = m_translator.load((m_rootFolder / Path(u"translations/webui_"_qs) + newLocale).data());
         if (m_translationFileLoaded)
         {
             LogMsg(tr("Web UI translation for selected locale (%1) has been successfully loaded.")
@@ -365,15 +358,15 @@ void WebApplication::configure()
     m_isHttpsEnabled = pref->isWebUiHttpsEnabled();
 
     m_prebuiltHeaders.clear();
-    m_prebuiltHeaders.push_back({QLatin1String(Http::HEADER_X_XSS_PROTECTION), QLatin1String("1; mode=block")});
-    m_prebuiltHeaders.push_back({QLatin1String(Http::HEADER_X_CONTENT_TYPE_OPTIONS), QLatin1String("nosniff")});
+    m_prebuiltHeaders.push_back({Http::HEADER_X_XSS_PROTECTION, QLatin1String("1; mode=block")});
+    m_prebuiltHeaders.push_back({Http::HEADER_X_CONTENT_TYPE_OPTIONS, QLatin1String("nosniff")});
 
     if (!m_isAltUIUsed)
-        m_prebuiltHeaders.push_back({QLatin1String(Http::HEADER_REFERRER_POLICY), QLatin1String("same-origin")});
+        m_prebuiltHeaders.push_back({Http::HEADER_REFERRER_POLICY, QLatin1String("same-origin")});
 
     const bool isClickjackingProtectionEnabled = pref->isWebUiClickjackingProtectionEnabled();
     if (isClickjackingProtectionEnabled)
-        m_prebuiltHeaders.push_back({QLatin1String(Http::HEADER_X_FRAME_OPTIONS), QLatin1String("SAMEORIGIN")});
+        m_prebuiltHeaders.push_back({Http::HEADER_X_FRAME_OPTIONS, QLatin1String("SAMEORIGIN")});
 
     const QString contentSecurityPolicy =
         (m_isAltUIUsed
@@ -382,7 +375,7 @@ void WebApplication::configure()
         + (isClickjackingProtectionEnabled ? QLatin1String(" frame-ancestors 'self';") : QLatin1String(""))
         + (m_isHttpsEnabled ? QLatin1String(" upgrade-insecure-requests;") : QLatin1String(""));
     if (!contentSecurityPolicy.isEmpty())
-        m_prebuiltHeaders.push_back({QLatin1String(Http::HEADER_CONTENT_SECURITY_POLICY), contentSecurityPolicy});
+        m_prebuiltHeaders.push_back({Http::HEADER_CONTENT_SECURITY_POLICY, contentSecurityPolicy});
 
     if (pref->isWebUICustomHTTPHeadersEnabled())
     {
@@ -437,9 +430,9 @@ void WebApplication::declarePublicAPI(const QString &apiPath)
     m_publicAPIs << apiPath;
 }
 
-void WebApplication::sendFile(const QString &path)
+void WebApplication::sendFile(const Path &path)
 {
-    const QDateTime lastModified {QFileInfo(path).lastModified()};
+    const QDateTime lastModified = Utils::Fs::lastModified(path);
 
     // find translated file in cache
     const auto it = m_translatedFiles.constFind(path);
@@ -450,16 +443,16 @@ void WebApplication::sendFile(const QString &path)
         return;
     }
 
-    QFile file {path};
+    QFile file {path.data()};
     if (!file.open(QIODevice::ReadOnly))
     {
-        qDebug("File %s was not found!", qUtf8Printable(path));
+        qDebug("File %s was not found!", qUtf8Printable(path.toString()));
         throw NotFoundHTTPError();
     }
 
     if (file.size() > MAX_ALLOWED_FILESIZE)
     {
-        qWarning("%s: exceeded the maximum allowed file size!", qUtf8Printable(path));
+        qWarning("%s: exceeded the maximum allowed file size!", qUtf8Printable(path.toString()));
         throw InternalServerErrorHTTPError(tr("Exceeded the maximum allowed file size (%1)!")
                                            .arg(Utils::Misc::friendlyUnit(MAX_ALLOWED_FILESIZE)));
     }
@@ -467,8 +460,8 @@ void WebApplication::sendFile(const QString &path)
     QByteArray data {file.readAll()};
     file.close();
 
-    const QMimeType mimeType {QMimeDatabase().mimeTypeForFileNameAndData(path, data)};
-    const bool isTranslatable {mimeType.inherits(QLatin1String("text/plain"))};
+    const QMimeType mimeType = QMimeDatabase().mimeTypeForFileNameAndData(path.data(), data);
+    const bool isTranslatable = mimeType.inherits(QLatin1String("text/plain"));
 
     // Translate the file
     if (isTranslatable)

@@ -87,7 +87,11 @@ WatchedFolderOptionsDialog::WatchedFolderOptionsDialog(
 
     loadState();
 
-    m_ui->buttonBox->button(QDialogButtonBox::Ok)->setFocus();
+    // Default focus
+    if (m_ui->comboTTM->currentIndex() == 0) // 0 is Manual mode
+        m_ui->savePath->setFocus();
+    else
+        m_ui->categoryComboBox->setFocus();
 }
 
 WatchedFolderOptionsDialog::~WatchedFolderOptionsDialog()
@@ -138,13 +142,13 @@ void WatchedFolderOptionsDialog::onCategoryChanged(const int index)
         const auto *btSession = BitTorrent::Session::instance();
         const QString categoryName = m_ui->categoryComboBox->currentText();
 
-        const QString savePath = btSession->categorySavePath(categoryName);
-        m_ui->savePath->setSelectedPath(Utils::Fs::toNativePath(savePath));
+        const Path savePath = btSession->categorySavePath(categoryName);
+        m_ui->savePath->setSelectedPath(savePath);
 
-        const QString finishedSavePath = btSession->categoryDownloadPath(categoryName);
-        m_ui->downloadPath->setSelectedPath(Utils::Fs::toNativePath(finishedSavePath));
+        const Path downloadPath = btSession->categoryDownloadPath(categoryName);
+        m_ui->downloadPath->setSelectedPath(downloadPath);
 
-        m_ui->groupBoxDownloadPath->setChecked(!finishedSavePath.isEmpty());
+        m_ui->groupBoxDownloadPath->setChecked(!downloadPath.isEmpty());
     }
 }
 
@@ -152,11 +156,11 @@ void WatchedFolderOptionsDialog::populateSavePaths()
 {
     const auto *btSession = BitTorrent::Session::instance();
 
-    const QString defaultSavePath {btSession->savePath()};
+    const Path defaultSavePath {btSession->savePath()};
     m_ui->savePath->setSelectedPath(!m_savePath.isEmpty() ? m_savePath : defaultSavePath);
 
-    const QString defaultFinishedSavePath {btSession->downloadPath()};
-    m_ui->downloadPath->setSelectedPath(!m_downloadPath.isEmpty() ? m_downloadPath : defaultFinishedSavePath);
+    const Path defaultDownloadPath {btSession->downloadPath()};
+    m_ui->downloadPath->setSelectedPath(!m_downloadPath.isEmpty() ? m_downloadPath : defaultDownloadPath);
 
     m_ui->groupBoxDownloadPath->setChecked(m_useDownloadPath);
 }
@@ -178,15 +182,15 @@ void WatchedFolderOptionsDialog::onTMMChanged(const int index)
 
         m_ui->savePath->blockSignals(true);
         m_savePath = m_ui->savePath->selectedPath();
-        const QString savePath = btSession->categorySavePath(m_ui->categoryComboBox->currentText());
+        const Path savePath = btSession->categorySavePath(m_ui->categoryComboBox->currentText());
         m_ui->savePath->setSelectedPath(savePath);
 
         m_ui->downloadPath->blockSignals(true);
         m_downloadPath = m_ui->downloadPath->selectedPath();
-        const QString finishedSavePath = btSession->categoryDownloadPath(m_ui->categoryComboBox->currentText());
-        m_ui->downloadPath->setSelectedPath(finishedSavePath);
+        const Path downloadPath = btSession->categoryDownloadPath(m_ui->categoryComboBox->currentText());
+        m_ui->downloadPath->setSelectedPath(downloadPath);
 
         m_useDownloadPath = m_ui->groupBoxDownloadPath->isChecked();
-        m_ui->groupBoxDownloadPath->setChecked(!finishedSavePath.isEmpty());
+        m_ui->groupBoxDownloadPath->setChecked(!downloadPath.isEmpty());
     }
 }

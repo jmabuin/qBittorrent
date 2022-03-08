@@ -16,6 +16,7 @@ HEADERS += \
     $$PWD/bittorrent/filterparserthread.h \
     $$PWD/bittorrent/infohash.h \
     $$PWD/bittorrent/loadtorrentparams.h \
+    $$PWD/bittorrent/ltqbitarray.h \
     $$PWD/bittorrent/ltqhash.h \
     $$PWD/bittorrent/lttypecast.h \
     $$PWD/bittorrent/magneturi.h \
@@ -60,6 +61,8 @@ HEADERS += \
     $$PWD/net/reverseresolution.h \
     $$PWD/net/smtp.h \
     $$PWD/orderedset.h \
+    $$PWD/path.h \
+    $$PWD/pathfwd.h \
     $$PWD/preferences.h \
     $$PWD/profile.h \
     $$PWD/profile_p.h \
@@ -108,6 +111,7 @@ SOURCES += \
     $$PWD/bittorrent/filesearcher.cpp \
     $$PWD/bittorrent/filterparserthread.cpp \
     $$PWD/bittorrent/infohash.cpp \
+    $$PWD/bittorrent/ltqbitarray.cpp \
     $$PWD/bittorrent/magneturi.cpp \
     $$PWD/bittorrent/nativesessionextension.cpp \
     $$PWD/bittorrent/nativetorrentextension.cpp \
@@ -142,6 +146,7 @@ SOURCES += \
     $$PWD/net/proxyconfigurationmanager.cpp \
     $$PWD/net/reverseresolution.cpp \
     $$PWD/net/smtp.cpp \
+    $$PWD/path.cpp \
     $$PWD/preferences.cpp \
     $$PWD/profile.cpp \
     $$PWD/profile_p.cpp \

@@ -40,7 +40,6 @@
 #include <QShortcut>
 #include <QSortFilterProxyModel>
 #include <QStandardItemModel>
-#include <QTableView>
 #include <QVector>
 #include <QWheelEvent>
 
@@ -89,6 +88,7 @@ PeerListWidget::PeerListWidget(PropertiesWidget *parent)
     setAllColumnsShowFocus(true);
     setEditTriggers(QAbstractItemView::NoEditTriggers);
     setSelectionMode(QAbstractItemView::ExtendedSelection);
+    header()->setFirstSectionMovable(true);
     header()->setStretchLastSection(false);
     header()->setTextElideMode(Qt::ElideRight);
 
@@ -155,7 +155,7 @@ PeerListWidget::PeerListWidget(PropertiesWidget *parent)
     updatePeerHostNameResolutionState();
     // SIGNAL/SLOT
     header()->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(header(), &QWidget::customContextMenuRequested, this, &PeerListWidget::displayToggleColumnsMenu);
+    connect(header(), &QWidget::customContextMenuRequested, this, &PeerListWidget::displayColumnHeaderMenu);
     connect(header(), &QHeaderView::sectionClicked, this, &PeerListWidget::handleSortColumnChanged);
     connect(header(), &QHeaderView::sectionMoved, this, &PeerListWidget::saveSettings);
     connect(header(), &QHeaderView::sectionResized, this, &PeerListWidget::saveSettings);
@@ -163,13 +163,6 @@ PeerListWidget::PeerListWidget(PropertiesWidget *parent)
     handleSortColumnChanged(header()->sortIndicatorSection());
     const auto *copyHotkey = new QShortcut(QKeySequence::Copy, this, nullptr, nullptr, Qt::WidgetShortcut);
     connect(copyHotkey, &QShortcut::activated, this, &PeerListWidget::copySelectedPeers);
-
-    // This hack fixes reordering of first column with Qt5.
-    // https://github.com/qtproject/qtbase/commit/e0fc088c0c8bc61dbcaf5928b24986cd61a22777
-    QTableView unused;
-    unused.setVerticalHeader(this->header());
-    this->header()->setParent(this);
-    unused.setVerticalHeader(new QHeaderView(Qt::Horizontal));
 }
 
 PeerListWidget::~PeerListWidget()
@@ -177,47 +170,46 @@ PeerListWidget::~PeerListWidget()
     saveSettings();
 }
 
-void PeerListWidget::displayToggleColumnsMenu(const QPoint &)
+void PeerListWidget::displayColumnHeaderMenu()
 {
     QMenu *menu = new QMenu(this);
     menu->setAttribute(Qt::WA_DeleteOnClose);
     menu->setTitle(tr("Column visibility"));
+    menu->setToolTipsVisible(true);
 
     for (int i = 0; i < PeerListColumns::IP_HIDDEN; ++i)
     {
         if ((i == PeerListColumns::COUNTRY) && !Preferences::instance()->resolvePeerCountries())
             continue;
 
-        QAction *myAct = menu->addAction(m_listModel->headerData(i, Qt::Horizontal, Qt::DisplayRole).toString());
-        myAct->setCheckable(true);
-        myAct->setChecked(!isColumnHidden(i));
-        myAct->setData(i);
+        const auto columnName = m_listModel->headerData(i, Qt::Horizontal, Qt::DisplayRole).toString();
+        QAction *action = menu->addAction(columnName, this, [this, i](const bool checked)
+        {
+            if (!checked && (visibleColumnsCount() <= 1))
+                return;
+
+            setColumnHidden(i, !checked);
+
+            if (checked && (columnWidth(i) <= 5))
+                resizeColumnToContents(i);
+
+            saveSettings();
+        });
+        action->setCheckable(true);
+        action->setChecked(!isColumnHidden(i));
     }
 
-    connect(menu, &QMenu::triggered, this, [this](const QAction *action)
+    menu->addSeparator();
+    QAction *resizeAction = menu->addAction(tr("Resize columns"), this, [this]()
     {
-        int visibleCols = 0;
-        for (int i = 0; i < PeerListColumns::IP_HIDDEN; ++i)
+        for (int i = 0, count = header()->count(); i < count; ++i)
         {
             if (!isColumnHidden(i))
-                ++visibleCols;
-
-            if (visibleCols > 1)
-                break;
+                resizeColumnToContents(i);
         }
-
-        const int col = action->data().toInt();
-
-        if (!isColumnHidden(col) && (visibleCols == 1))
-            return;
-
-        setColumnHidden(col, !isColumnHidden(col));
-
-        if (!isColumnHidden(col) && (columnWidth(col) <= 5))
-            resizeColumnToContents(col);
-
         saveSettings();
     });
+    resizeAction->setToolTip(tr("Resize all non-hidden columns to the size of their contents"));
 
     menu->popup(QCursor::pos());
 }
@@ -260,7 +252,7 @@ void PeerListWidget::updatePeerCountryResolutionState()
     }
 }
 
-void PeerListWidget::showPeerListMenu(const QPoint &)
+void PeerListWidget::showPeerListMenu()
 {
     BitTorrent::Torrent *torrent = m_properties->getCurrentTorrent();
     if (!torrent) return;
@@ -471,9 +463,11 @@ void PeerListWidget::updatePeer(const BitTorrent::Torrent *torrent, const BitTor
     setModelData(row, PeerListColumns::TOT_UP, totalUp, peer.totalUpload(), intDataTextAlignment);
     setModelData(row, PeerListColumns::RELEVANCE, (Utils::String::fromDouble(peer.relevance() * 100, 1) + '%'), peer.relevance(), intDataTextAlignment);
 
-    const QStringList downloadingFiles {torrent->hasMetadata()
-                ? torrent->info().filesForPiece(peer.downloadingPieceIndex())
-                : QStringList()};
+    const PathList filePaths = torrent->info().filesForPiece(peer.downloadingPieceIndex());
+    QStringList downloadingFiles;
+    downloadingFiles.reserve(filePaths.size());
+    for (const Path &filePath : filePaths)
+        downloadingFiles.append(filePath.toString());
     const QString downloadingFilesDisplayValue = downloadingFiles.join(';');
     setModelData(row, PeerListColumns::DOWNLOADING_PIECE, downloadingFilesDisplayValue, downloadingFilesDisplayValue, {}, downloadingFiles.join(QLatin1Char('\n')));
 
@@ -490,6 +484,18 @@ void PeerListWidget::updatePeer(const BitTorrent::Torrent *torrent, const BitTor
             m_listModel->setData(m_listModel->index(row, PeerListColumns::COUNTRY), countryName, Qt::ToolTipRole);
         }
     }
+}
+
+int PeerListWidget::visibleColumnsCount() const
+{
+    int count = 0;
+    for (int i = 0, iMax = header()->count(); i < iMax; ++i)
+    {
+        if (!isColumnHidden(i))
+            ++count;
+    }
+
+    return count;
 }
 
 void PeerListWidget::handleResolved(const QHostAddress &ip, const QString &hostname) const

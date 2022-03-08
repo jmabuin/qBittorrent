@@ -708,6 +708,13 @@
              </widget>
             </item>
             <item>
+             <widget class="QCheckBox" name="checkBoxPerformanceWarning">
+              <property name="text">
+               <string>Log performance warnings</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <spacer name="verticalSpacer_4">
               <property name="orientation">
                <enum>Qt::Vertical</enum>
@@ -1015,7 +1022,7 @@ Manual: Various torrent properties (e.g. save path) must be assigned manually</s
                  <item row="2" column="0">
                   <widget class="QLabel" name="labelCategoryDefaultPathChanged">
                    <property name="text">
-                    <string>When Default Save Path changed:</string>
+                    <string>When Default Save/Incomplete Path changed:</string>
                    </property>
                   </widget>
                  </item>
@@ -1100,6 +1107,16 @@ Manual: Various torrent properties (e.g. save path) must be assigned manually</s
                 <widget class="QCheckBox" name="checkUseSubcategories">
                  <property name="text">
                   <string>Use Subcategories</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="checkUseCategoryPaths">
+                 <property name="text">
+                  <string>Use Category paths in Manual Mode</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Resolve relative Save Path against appropriate Category path instead of Default one</string>
                  </property>
                 </widget>
                </item>
@@ -1812,12 +1829,6 @@ Manual: Various torrent properties (e.g. save path) must be assigned manually</s
                  </item>
                  <item>
                   <widget class="QToolButton" name="IpFilterRefreshBtn">
-                   <property name="minimumSize">
-                    <size>
-                     <width>0</width>
-                     <height>25</height>
-                    </size>
-                   </property>
                    <property name="toolTip">
                     <string>Reload the filter</string>
                    </property>

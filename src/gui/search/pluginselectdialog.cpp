@@ -37,7 +37,6 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
-#include <QTableView>
 
 #include "base/global.h"
 #include "base/net/downloadmanager.h"
@@ -69,15 +68,9 @@ PluginSelectDialog::PluginSelectDialog(SearchPluginManager *pluginManager, QWidg
     m_ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    // This hack fixes reordering of first column with Qt5.
-    // https://github.com/qtproject/qtbase/commit/e0fc088c0c8bc61dbcaf5928b24986cd61a22777
-    QTableView unused;
-    unused.setVerticalHeader(m_ui->pluginsTree->header());
-    m_ui->pluginsTree->header()->setParent(m_ui->pluginsTree);
-    unused.setVerticalHeader(new QHeaderView(Qt::Horizontal));
-
     m_ui->pluginsTree->setRootIsDecorated(false);
     m_ui->pluginsTree->hideColumn(PLUGIN_ID);
+    m_ui->pluginsTree->header()->setFirstSectionMovable(true);
     m_ui->pluginsTree->header()->setSortIndicator(0, Qt::AscendingOrder);
 
     m_ui->actionUninstall->setIcon(UIThemeManager::instance()->getIcon("list-remove"));
@@ -174,7 +167,7 @@ void PluginSelectDialog::togglePluginState(QTreeWidgetItem *item, int)
     }
 }
 
-void PluginSelectDialog::displayContextMenu(const QPoint &)
+void PluginSelectDialog::displayContextMenu()
 {
     // Enable/disable pause/start action given the DL state
     const QList<QTreeWidgetItem *> items = m_ui->pluginsTree->selectedItems();
@@ -309,10 +302,10 @@ void PluginSelectDialog::addNewPlugin(const QString &pluginName)
         setRowColor(m_ui->pluginsTree->indexOfTopLevelItem(item), "red");
     }
     // Handle icon
-    if (QFile::exists(plugin->iconPath))
+    if (plugin->iconPath.exists())
     {
         // Good, we already have the icon
-        item->setData(PLUGIN_NAME, Qt::DecorationRole, QIcon(plugin->iconPath));
+        item->setData(PLUGIN_NAME, Qt::DecorationRole, QIcon(plugin->iconPath.data()));
     }
     else
     {
@@ -406,10 +399,10 @@ void PluginSelectDialog::iconDownloadFinished(const Net::DownloadResult &result)
         return;
     }
 
-    const QString filePath = Utils::Fs::toUniformPath(result.filePath);
+    const Path filePath = result.filePath;
 
     // Icon downloaded
-    QIcon icon(filePath);
+    QIcon icon {filePath.data()};
     // Detect a non-decodable icon
     QList<QSize> sizes = icon.availableSizes();
     bool invalid = (sizes.isEmpty() || icon.pixmap(sizes.first()).isNull());
@@ -421,21 +414,19 @@ void PluginSelectDialog::iconDownloadFinished(const Net::DownloadResult &result)
             PluginInfo *plugin = m_pluginManager->pluginInfo(id);
             if (!plugin) continue;
 
-            QString iconPath = QString("%1/%2.%3")
-                .arg(SearchPluginManager::pluginsLocation()
-                    , id
-                    , result.url.endsWith(".ico", Qt::CaseInsensitive) ? "ico" : "png");
-            if (QFile::copy(filePath, iconPath))
+            const QString ext = result.url.endsWith(QLatin1String(".ico"), Qt::CaseInsensitive) ? QLatin1String(".ico") : QLatin1String(".png");
+            const Path iconPath = SearchPluginManager::pluginsLocation() / Path(id + ext);
+            if (Utils::Fs::copyFile(filePath, iconPath))
             {
                 // This 2nd check is necessary. Some favicons (eg from piratebay)
                 // decode fine without an ext, but fail to do so when appending the ext
                 // from the url. Probably a Qt bug.
-                QIcon iconWithExt(iconPath);
+                QIcon iconWithExt {iconPath.data()};
                 QList<QSize> sizesExt = iconWithExt.availableSizes();
                 bool invalidExt = (sizesExt.isEmpty() || iconWithExt.pixmap(sizesExt.first()).isNull());
                 if (invalidExt)
                 {
-                    Utils::Fs::forceRemove(iconPath);
+                    Utils::Fs::removeFile(iconPath);
                     continue;
                 }
 
@@ -445,7 +436,7 @@ void PluginSelectDialog::iconDownloadFinished(const Net::DownloadResult &result)
         }
     }
     // Delete tmp file
-    Utils::Fs::forceRemove(filePath);
+    Utils::Fs::removeFile(filePath);
 }
 
 void PluginSelectDialog::checkForUpdatesFinished(const QHash<QString, PluginVersion> &updateInfo)
