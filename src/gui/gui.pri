@@ -9,14 +9,18 @@ HEADERS += \
     $$PWD/categoryfiltermodel.h \
     $$PWD/categoryfilterproxymodel.h \
     $$PWD/categoryfilterwidget.h \
+    $$PWD/color.h \
     $$PWD/cookiesdialog.h \
     $$PWD/cookiesmodel.h \
     $$PWD/deletionconfirmationdialog.h \
+    $$PWD/desktopintegration.h \
     $$PWD/downloadfromurldialog.h \
     $$PWD/executionlogwidget.h \
     $$PWD/fspathedit.h \
     $$PWD/fspathedit_p.h \
+    $$PWD/guiapplicationcomponent.h \
     $$PWD/hidabletabwidget.h \
+    $$PWD/interfaces/iguiapplication.h \
     $$PWD/ipsubnetwhitelistoptionsdialog.h \
     $$PWD/lineedit.h \
     $$PWD/log/logfiltermodel.h \
@@ -35,7 +39,6 @@ HEADERS += \
     $$PWD/properties/pieceavailabilitybar.h \
     $$PWD/properties/piecesbar.h \
     $$PWD/properties/propertieswidget.h \
-    $$PWD/properties/proplistdelegate.h \
     $$PWD/properties/proptabbar.h \
     $$PWD/properties/speedplotview.h \
     $$PWD/properties/speedwidget.h \
@@ -61,11 +64,12 @@ HEADERS += \
     $$PWD/tagfilterwidget.h \
     $$PWD/torrentcategorydialog.h \
     $$PWD/torrentcontentfiltermodel.h \
+    $$PWD/torrentcontentitemdelegate.h \
     $$PWD/torrentcontentmodel.h \
     $$PWD/torrentcontentmodelfile.h \
     $$PWD/torrentcontentmodelfolder.h \
     $$PWD/torrentcontentmodelitem.h \
-    $$PWD/torrentcontenttreeview.h \
+    $$PWD/torrentcontentwidget.h \
     $$PWD/torrentcreatordialog.h \
     $$PWD/torrentoptionsdialog.h \
     $$PWD/trackerentriesdialog.h \
@@ -79,7 +83,8 @@ HEADERS += \
     $$PWD/uithememanager.h \
     $$PWD/utils.h \
     $$PWD/watchedfolderoptionsdialog.h \
-    $$PWD/watchedfoldersmodel.h
+    $$PWD/watchedfoldersmodel.h \
+    $$PWD/windowstate.h
 
 SOURCES += \
     $$PWD/aboutdialog.cpp \
@@ -93,10 +98,12 @@ SOURCES += \
     $$PWD/cookiesdialog.cpp \
     $$PWD/cookiesmodel.cpp \
     $$PWD/deletionconfirmationdialog.cpp \
+    $$PWD/desktopintegration.cpp \
     $$PWD/downloadfromurldialog.cpp \
     $$PWD/executionlogwidget.cpp \
     $$PWD/fspathedit.cpp \
     $$PWD/fspathedit_p.cpp \
+    $$PWD/guiapplicationcomponent.cpp \
     $$PWD/hidabletabwidget.cpp \
     $$PWD/ipsubnetwhitelistoptionsdialog.cpp \
     $$PWD/lineedit.cpp \
@@ -116,7 +123,6 @@ SOURCES += \
     $$PWD/properties/pieceavailabilitybar.cpp \
     $$PWD/properties/piecesbar.cpp \
     $$PWD/properties/propertieswidget.cpp \
-    $$PWD/properties/proplistdelegate.cpp \
     $$PWD/properties/proptabbar.cpp \
     $$PWD/properties/speedplotview.cpp \
     $$PWD/properties/speedwidget.cpp \
@@ -142,11 +148,12 @@ SOURCES += \
     $$PWD/tagfilterwidget.cpp \
     $$PWD/torrentcategorydialog.cpp \
     $$PWD/torrentcontentfiltermodel.cpp \
+    $$PWD/torrentcontentitemdelegate.cpp \
     $$PWD/torrentcontentmodel.cpp \
     $$PWD/torrentcontentmodelfile.cpp \
     $$PWD/torrentcontentmodelfolder.cpp \
     $$PWD/torrentcontentmodelitem.cpp \
-    $$PWD/torrentcontenttreeview.cpp \
+    $$PWD/torrentcontentwidget.cpp \
     $$PWD/torrentcreatordialog.cpp \
     $$PWD/torrentoptionsdialog.cpp \
     $$PWD/trackerentriesdialog.cpp \
@@ -161,26 +168,6 @@ SOURCES += \
     $$PWD/utils.cpp \
     $$PWD/watchedfolderoptionsdialog.cpp \
     $$PWD/watchedfoldersmodel.cpp
-
-win32|macx {
-    HEADERS += $$PWD/programupdater.h
-    SOURCES += $$PWD/programupdater.cpp
-}
-
-unix:!macx:dbus {
-    HEADERS += \
-        $$PWD/powermanagement/powermanagement_x11.h \
-        $$PWD/qtnotify/notifications.h
-
-    SOURCES += \
-        $$PWD/powermanagement/powermanagement_x11.cpp \
-        $$PWD/qtnotify/notifications.cpp
-}
-
-macx {
-    HEADERS += $$PWD/macutilities.h
-    OBJECTIVE_SOURCES += $$PWD/macutilities.mm
-}
 
 FORMS += \
     $$PWD/aboutdialog.ui \
@@ -214,3 +201,31 @@ FORMS += \
     $$PWD/watchedfolderoptionsdialog.ui
 
 RESOURCES += $$PWD/about.qrc
+
+stacktrace {
+    HEADERS += $$PWD/stacktracedialog.h
+    SOURCES += $$PWD/stacktracedialog.cpp
+    FORMS += $$PWD/stacktracedialog.ui
+}
+
+win32|macx {
+    HEADERS += $$PWD/programupdater.h
+    SOURCES += $$PWD/programupdater.cpp
+}
+
+unix:!macx:dbus {
+    HEADERS += \
+        $$PWD/notifications/dbusnotifier.h \
+        $$PWD/notifications/dbusnotificationsinterface.h \
+        $$PWD/powermanagement/powermanagement_x11.h
+
+    SOURCES += \
+        $$PWD/notifications/dbusnotifier.cpp \
+        $$PWD/notifications/dbusnotificationsinterface.cpp \
+        $$PWD/powermanagement/powermanagement_x11.cpp
+}
+
+macx {
+    HEADERS += $$PWD/macutilities.h
+    OBJECTIVE_SOURCES += $$PWD/macutilities.mm
+}

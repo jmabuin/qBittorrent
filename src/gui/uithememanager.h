@@ -1,5 +1,6 @@
 /*
  * Bittorrent Client using Qt and libtorrent.
+ * Copyright (C) 2023  Vladimir Golovnev <glassez@yandex.ru>
  * Copyright (C) 2019  Prince Gupta <jagannatharjun11@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -34,21 +35,28 @@
 #include <QHash>
 #include <QIcon>
 #include <QObject>
+#include <QPixmap>
 #include <QString>
 
 #include "base/pathfwd.h"
+
+enum class ColorMode
+{
+    Light,
+    Dark
+};
 
 class UIThemeSource
 {
 public:
     virtual ~UIThemeSource() = default;
 
+    virtual QColor getColor(const QString &colorId, const ColorMode colorMode) const = 0;
+    virtual Path getIconPath(const QString &iconId, const ColorMode colorMode) const = 0;
     virtual QByteArray readStyleSheet() = 0;
-    virtual QByteArray readConfig() = 0;
-    virtual Path iconPath(const QString &iconId) const = 0;
 };
 
-class UIThemeManager : public QObject
+class UIThemeManager final : public QObject
 {
     Q_OBJECT
     Q_DISABLE_COPY_MOVE(UIThemeManager)
@@ -58,11 +66,11 @@ public:
     static void freeInstance();
     static UIThemeManager *instance();
 
-    Path getIconPath(const QString &iconId) const;
     QIcon getIcon(const QString &iconId, const QString &fallback = {}) const;
     QIcon getFlagIcon(const QString &countryIsoCode) const;
+    QPixmap getScaledPixmap(const QString &iconId, int height) const;
 
-    QColor getColor(const QString &id, const QColor &defaultColor) const;
+    QColor getColor(const QString &id) const;
 
 #ifndef Q_OS_MACOS
     QIcon getSystrayIcon() const;
@@ -70,18 +78,17 @@ public:
 
 private:
     UIThemeManager(); // singleton class
-    Path getIconPathFromResources(const QString &iconId, const QString &fallback = {}) const;
-    void loadColorsFromJSONConfig();
+
     void applyPalette() const;
     void applyStyleSheet() const;
 
     static UIThemeManager *m_instance;
     const bool m_useCustomTheme;
-    std::unique_ptr<UIThemeSource> m_themeSource;
-    QHash<QString, QColor> m_colors;
-    mutable QHash<QString, QIcon> m_iconCache;
-    mutable QHash<QString, QIcon> m_flagCache;
 #if (defined(Q_OS_UNIX) && !defined(Q_OS_MACOS))
-    const bool m_useSystemTheme;
+    const bool m_useSystemIcons;
 #endif
+    std::unique_ptr<UIThemeSource> m_themeSource;
+    mutable QHash<QString, QIcon> m_icons;
+    mutable QHash<QString, QIcon> m_darkModeIcons;
+    mutable QHash<QString, QIcon> m_flags;
 };

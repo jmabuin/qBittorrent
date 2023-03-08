@@ -31,11 +31,11 @@
 #ifdef Q_OS_WIN
 #include <Objbase.h>
 #include <Shlobj.h>
+#include <Shellapi.h>
 #endif
 
 #include <QApplication>
 #include <QDesktopServices>
-#include <QFileInfo>
 #include <QIcon>
 #include <QPixmap>
 #include <QPixmapCache>
@@ -43,56 +43,33 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QScreen>
+#include <QSize>
 #include <QStyle>
+#include <QThread>
 #include <QUrl>
 #include <QWidget>
 #include <QWindow>
 
+#include "base/global.h"
 #include "base/path.h"
 #include "base/utils/fs.h"
 #include "base/utils/version.h"
 
-void Utils::Gui::resize(QWidget *widget, const QSize &newSize)
-{
-    if (newSize.isValid())
-        widget->resize(newSize);
-    else  // depends on screen DPI
-        widget->resize(widget->size() * screenScalingFactor(widget));
-}
-
-qreal Utils::Gui::screenScalingFactor(const QWidget *widget)
-{
-    Q_UNUSED(widget);
-    return 1;
-}
-
 QPixmap Utils::Gui::scaledPixmap(const QIcon &icon, const QWidget *widget, const int height)
 {
+    Q_UNUSED(widget);  // TODO: remove it
     Q_ASSERT(height > 0);
-    const int scaledHeight = height * Utils::Gui::screenScalingFactor(widget);
-    return icon.pixmap(scaledHeight);
+
+    return icon.pixmap(height);
 }
 
 QPixmap Utils::Gui::scaledPixmap(const Path &path, const QWidget *widget, const int height)
 {
+    Q_UNUSED(widget);
+    Q_ASSERT(height >= 0);
+
     const QPixmap pixmap {path.data()};
-    const int scaledHeight = ((height > 0) ? height : pixmap.height()) * Utils::Gui::screenScalingFactor(widget);
-    return pixmap.scaledToHeight(scaledHeight, Qt::SmoothTransformation);
-}
-
-QPixmap Utils::Gui::scaledPixmapSvg(const Path &path, const QWidget *widget, const int baseHeight)
-{
-    const int scaledHeight = baseHeight * Utils::Gui::screenScalingFactor(widget);
-    const QString normalizedKey = path.data() + '@' + QString::number(scaledHeight);
-
-    QPixmap pm;
-    QPixmapCache cache;
-    if (!cache.find(normalizedKey, &pm))
-    {
-        pm = QIcon(path.data()).pixmap(scaledHeight);
-        cache.insert(normalizedKey, pm);
-    }
-    return pm;
+    return (height == 0) ? pixmap : pixmap.scaledToHeight(height, Qt::SmoothTransformation);
 }
 
 QSize Utils::Gui::smallIconSize(const QWidget *widget)
@@ -147,10 +124,27 @@ QPoint Utils::Gui::screenCenter(const QWidget *w)
 void Utils::Gui::openPath(const Path &path)
 {
     // Hack to access samba shares with QDesktopServices::openUrl
-    if (path.data().startsWith("//"))
-        QDesktopServices::openUrl(QUrl(QString::fromLatin1("file:") + path.toString()));
-    else
-        QDesktopServices::openUrl(QUrl::fromLocalFile(path.data()));
+    const QUrl url = path.data().startsWith(u"//")
+        ? QUrl(u"file:" + path.data())
+        : QUrl::fromLocalFile(path.data());
+
+#ifdef Q_OS_WIN
+    auto *thread = QThread::create([path]()
+    {
+        if (SUCCEEDED(::CoInitializeEx(NULL, (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE))))
+        {
+            const std::wstring pathWStr = path.toString().toStdWString();
+
+            ::ShellExecuteW(nullptr, nullptr, pathWStr.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+
+            ::CoUninitialize();
+        }
+    });
+    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
+#else
+    QDesktopServices::openUrl(url);
+#endif
 }
 
 // Open the parent directory of the given path with a file manager and select
@@ -165,43 +159,51 @@ void Utils::Gui::openFolderSelect(const Path &path)
     }
 
 #ifdef Q_OS_WIN
-    HRESULT hresult = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-    PIDLIST_ABSOLUTE pidl = ::ILCreateFromPathW(reinterpret_cast<PCTSTR>(path.toString().utf16()));
-    if (pidl)
+    auto *thread = QThread::create([path]()
     {
-        ::SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
-        ::ILFree(pidl);
-    }
-    if ((hresult == S_OK) || (hresult == S_FALSE))
-        ::CoUninitialize();
+        if (SUCCEEDED(::CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)))
+        {
+            const std::wstring pathWStr = path.toString().toStdWString();
+            PIDLIST_ABSOLUTE pidl = ::ILCreateFromPathW(pathWStr.c_str());
+            if (pidl)
+            {
+                ::SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
+                ::ILFree(pidl);
+            }
+
+            ::CoUninitialize();
+        }
+    });
+    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
 #elif defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
     QProcess proc;
-    proc.start("xdg-mime", {"query", "default", "inode/directory"});
+    proc.start(u"xdg-mime"_qs, {u"query"_qs, u"default"_qs, u"inode/directory"_qs});
     proc.waitForFinished();
-    const QString output = proc.readLine().simplified();
-    if ((output == "dolphin.desktop") || (output == "org.kde.dolphin.desktop"))
+    const auto output = QString::fromLocal8Bit(proc.readLine().simplified());
+    if ((output == u"dolphin.desktop") || (output == u"org.kde.dolphin.desktop"))
     {
-        proc.startDetached("dolphin", {"--select", path.toString()});
+        proc.startDetached(u"dolphin"_qs, {u"--select"_qs, path.toString()});
     }
-    else if ((output == "nautilus.desktop") || (output == "org.gnome.Nautilus.desktop")
-                 || (output == "nautilus-folder-handler.desktop"))
+    else if ((output == u"nautilus.desktop") || (output == u"org.gnome.Nautilus.desktop")
+                 || (output == u"nautilus-folder-handler.desktop"))
     {
-        proc.start("nautilus", {"--version"});
+        proc.start(u"nautilus"_qs, {u"--version"_qs});
         proc.waitForFinished();
-        const QString nautilusVerStr = QString(proc.readLine()).remove(QRegularExpression("[^0-9.]"));
-        using NautilusVersion = Utils::Version<int, 3>;
-        if (NautilusVersion::tryParse(nautilusVerStr, {1, 0, 0}) > NautilusVersion {3, 28})
-            proc.startDetached("nautilus", {(Fs::isDir(path) ? path.parentPath() : path).toString()});
+        const auto nautilusVerStr = QString::fromLocal8Bit(proc.readLine()).remove(QRegularExpression(u"[^0-9.]"_qs));
+        using NautilusVersion = Utils::Version<3>;
+        if (NautilusVersion::fromString(nautilusVerStr, {1, 0, 0}) > NautilusVersion(3, 28, 0))
+            proc.startDetached(u"nautilus"_qs, {(Fs::isDir(path) ? path.parentPath() : path).toString()});
         else
-            proc.startDetached("nautilus", {"--no-desktop", (Fs::isDir(path) ? path.parentPath() : path).toString()});
+            proc.startDetached(u"nautilus"_qs, {u"--no-desktop"_qs, (Fs::isDir(path) ? path.parentPath() : path).toString()});
     }
-    else if (output == "nemo.desktop")
+    else if (output == u"nemo.desktop")
     {
-        proc.startDetached("nemo", {"--no-desktop", (Fs::isDir(path) ? path.parentPath() : path).toString()});
+        proc.startDetached(u"nemo"_qs, {u"--no-desktop"_qs, (Fs::isDir(path) ? path.parentPath() : path).toString()});
     }
-    else if ((output == "konqueror.desktop") || (output == "kfmclient_dir.desktop"))
+    else if ((output == u"konqueror.desktop") || (output == u"kfmclient_dir.desktop"))
     {
-        proc.startDetached("konqueror", {"--select", path.toString()});
+        proc.startDetached(u"konqueror"_qs, {u"--select"_qs, path.toString()});
     }
     else
     {

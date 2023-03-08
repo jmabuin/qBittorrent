@@ -1,5 +1,6 @@
 /*
  * Bittorrent Client using Qt and libtorrent.
+ * Copyright (C) 2022  Vladimir Golovnev <glassez@yandex.ru>
  * Copyright (C) 2012  Christophe Dumez <chris@qbittorrent.org>
  *
  * This program is free software; you can redistribute it and/or
@@ -35,6 +36,7 @@
 #include "base/bittorrent/addtorrentparams.h"
 #include "base/bittorrent/magneturi.h"
 #include "base/bittorrent/torrentinfo.h"
+#include "base/path.h"
 #include "base/settingvalue.h"
 
 namespace BitTorrent
@@ -52,8 +54,7 @@ namespace Ui
     class AddNewTorrentDialog;
 }
 
-class PropListDelegate;
-class TorrentContentFilterModel;
+class LineEdit;
 class TorrentFileGuard;
 
 class AddNewTorrentDialog final : public QDialog
@@ -78,8 +79,6 @@ public:
     static void show(const QString &source, QWidget *parent);
 
 private slots:
-    void displayContentTreeMenu();
-    void displayColumnHeaderMenu();
     void updateDiskSpaceLabel();
     void onSavePathChanged(const Path &newPath);
     void onDownloadPathChanged(const Path &newPath);
@@ -88,15 +87,17 @@ private slots:
     void handleDownloadFinished(const Net::DownloadResult &downloadResult);
     void TMMChanged(int index);
     void categoryChanged(int index);
-    void contentLayoutChanged(int index);
+    void contentLayoutChanged();
     void doNotDeleteTorrentClicked(bool checked);
-    void renameSelectedFile();
 
     void accept() override;
     void reject() override;
 
 private:
+    class TorrentContentAdaptor;
+
     explicit AddNewTorrentDialog(const BitTorrent::AddTorrentParams &inParams, QWidget *parent);
+
     bool loadTorrentFile(const QString &source);
     bool loadTorrentImpl();
     bool loadMagnet(const BitTorrent::MagnetUri &magnetUri);
@@ -110,14 +111,14 @@ private:
 
     void showEvent(QShowEvent *event) override;
 
-    Ui::AddNewTorrentDialog *m_ui;
-    TorrentContentFilterModel *m_contentModel = nullptr;
-    PropListDelegate *m_contentDelegate = nullptr;
+    Ui::AddNewTorrentDialog *m_ui = nullptr;
+    TorrentContentAdaptor *m_contentAdaptor = nullptr;
     BitTorrent::MagnetUri m_magnetURI;
     BitTorrent::TorrentInfo m_torrentInfo;
     int m_savePathIndex = -1;
     int m_downloadPathIndex = -1;
     bool m_useDownloadPath = false;
+    LineEdit *m_filterLine = nullptr;
     std::unique_ptr<TorrentFileGuard> m_torrentGuard;
     BitTorrent::AddTorrentParams m_torrentParams;
 

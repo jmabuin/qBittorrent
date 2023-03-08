@@ -11,7 +11,6 @@ else {
 !nogui:dbus: QT += dbus
 
 QMAKE_CXXFLAGS += -Wall -Wextra -Wpedantic -Wformat-security
-!haiku: QMAKE_LFLAGS_APP += -rdynamic
 
 # Man page
 nogui {
@@ -52,10 +51,6 @@ nogui:systemd {
     INSTALLS += \
         menuicons \
         statusIconScalable
-
-    pixmap.files = $$DIST_PATH/menuicons/128x128/apps/qbittorrent.png
-    pixmap.path = $$DATADIR/pixmaps
-    INSTALLS += pixmap
 }
 
 # INSTALL

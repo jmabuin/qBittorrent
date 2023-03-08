@@ -38,6 +38,7 @@
 
 #include "base/exceptions.h"
 #include "base/settingvalue.h"
+#include "base/utils/thread.h"
 
 class QThread;
 class QTimer;
@@ -136,9 +137,9 @@ namespace RSS
         SettingValue<QVariant> m_storeSmartEpisodeFilter;
         SettingValue<bool> m_storeDownloadRepacks;
 
-        QTimer *m_processingTimer;
-        QThread *m_ioThread;
-        AsyncFileStorage *m_fileStorage;
+        QTimer *m_processingTimer = nullptr;
+        Utils::Thread::UniquePtr m_ioThread;
+        AsyncFileStorage *m_fileStorage = nullptr;
         QHash<QString, AutoDownloadRule> m_rules;
         QList<QSharedPointer<ProcessingJob>> m_processingQueue;
         QHash<QString, QSharedPointer<ProcessingJob>> m_waitingJobs;

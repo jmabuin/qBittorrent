@@ -45,7 +45,6 @@
 #include <QLocale>
 #include <QNetworkCookie>
 #include <QSettings>
-#include <QSize>
 #include <QTime>
 
 #ifdef Q_OS_WIN
@@ -278,16 +277,6 @@ bool Preferences::isStatusbarDisplayed() const
 void Preferences::setStatusbarDisplayed(const bool displayed)
 {
     setValue(u"Preferences/General/StatusbarDisplayed"_qs, displayed);
-}
-
-bool Preferences::startMinimized() const
-{
-    return value(u"Preferences/General/StartMinimized"_qs, false);
-}
-
-void Preferences::setStartMinimized(const bool b)
-{
-    setValue(u"Preferences/General/StartMinimized"_qs, b);
 }
 
 bool Preferences::isSplashScreenDisabled() const
@@ -549,10 +538,9 @@ QVector<Utils::Net::Subnet> Preferences::getWebUiAuthSubnetWhitelist() const
 
     for (const QString &rawSubnet : subnets)
     {
-        bool ok = false;
-        const Utils::Net::Subnet subnet = Utils::Net::parseSubnet(rawSubnet.trimmed(), &ok);
-        if (ok)
-            ret.append(subnet);
+        const std::optional<Utils::Net::Subnet> subnet = Utils::Net::parseSubnet(rawSubnet.trimmed());
+        if (subnet)
+            ret.append(subnet.value());
     }
 
     return ret;
@@ -562,9 +550,7 @@ void Preferences::setWebUiAuthSubnetWhitelist(QStringList subnets)
 {
     Algorithm::removeIf(subnets, [](const QString &subnet)
     {
-        bool ok = false;
-        Utils::Net::parseSubnet(subnet.trimmed(), &ok);
-        return !ok;
+        return !Utils::Net::parseSubnet(subnet.trimmed()).has_value();
     });
 
     setValue(u"Preferences/WebUI/AuthSubnetWhitelist"_qs, subnets);
@@ -572,7 +558,7 @@ void Preferences::setWebUiAuthSubnetWhitelist(QStringList subnets)
 
 QString Preferences::getServerDomains() const
 {
-    return value<QString>(u"Preferences/WebUI/ServerDomains"_qs, QChar('*'));
+    return value<QString>(u"Preferences/WebUI/ServerDomains"_qs, u"*"_qs);
 }
 
 void Preferences::setServerDomains(const QString &str)
@@ -582,7 +568,7 @@ void Preferences::setServerDomains(const QString &str)
 
 QString Preferences::getWebUiAddress() const
 {
-    return value<QString>(u"Preferences/WebUI/Address"_qs, QChar('*')).trimmed();
+    return value<QString>(u"Preferences/WebUI/Address"_qs, u"*"_qs).trimmed();
 }
 
 void Preferences::setWebUiAddress(const QString &addr)
@@ -592,12 +578,13 @@ void Preferences::setWebUiAddress(const QString &addr)
 
 quint16 Preferences::getWebUiPort() const
 {
-    return value<int>(u"Preferences/WebUI/Port"_qs, 8080);
+    return value<quint16>(u"Preferences/WebUI/Port"_qs, 8080);
 }
 
 void Preferences::setWebUiPort(const quint16 port)
 {
-    setValue(u"Preferences/WebUI/Port"_qs, port);
+    // cast to `int` type so it will show human readable unit in configuration file
+    setValue(u"Preferences/WebUI/Port"_qs, static_cast<int>(port));
 }
 
 bool Preferences::useUPnPForWebUIPort() const
@@ -664,6 +651,16 @@ int Preferences::getWebUISessionTimeout() const
 void Preferences::setWebUISessionTimeout(const int timeout)
 {
     setValue(u"Preferences/WebUI/SessionTimeout"_qs, timeout);
+}
+
+QString Preferences::getWebAPISessionCookieName() const
+{
+    return value<QString>(u"WebAPI/SessionCookieName"_qs);
+}
+
+void Preferences::setWebAPISessionCookieName(const QString &cookieName)
+{
+    setValue(u"WebAPI/SessionCookieName"_qs, cookieName);
 }
 
 bool Preferences::isWebUiClickjackingProtectionEnabled() const
@@ -867,22 +864,42 @@ void Preferences::setUILocked(const bool locked)
     setValue(u"Locking/locked"_qs, locked);
 }
 
-bool Preferences::isAutoRunEnabled() const
+bool Preferences::isAutoRunOnTorrentAddedEnabled() const
+{
+    return value(u"AutoRun/OnTorrentAdded/Enabled"_qs, false);
+}
+
+void Preferences::setAutoRunOnTorrentAddedEnabled(const bool enabled)
+{
+    setValue(u"AutoRun/OnTorrentAdded/Enabled"_qs, enabled);
+}
+
+QString Preferences::getAutoRunOnTorrentAddedProgram() const
+{
+    return value<QString>(u"AutoRun/OnTorrentAdded/Program"_qs);
+}
+
+void Preferences::setAutoRunOnTorrentAddedProgram(const QString &program)
+{
+    setValue(u"AutoRun/OnTorrentAdded/Program"_qs, program);
+}
+
+bool Preferences::isAutoRunOnTorrentFinishedEnabled() const
 {
     return value(u"AutoRun/enabled"_qs, false);
 }
 
-void Preferences::setAutoRunEnabled(const bool enabled)
+void Preferences::setAutoRunOnTorrentFinishedEnabled(const bool enabled)
 {
     setValue(u"AutoRun/enabled"_qs, enabled);
 }
 
-QString Preferences::getAutoRunProgram() const
+QString Preferences::getAutoRunOnTorrentFinishedProgram() const
 {
     return value<QString>(u"AutoRun/program"_qs);
 }
 
-void Preferences::setAutoRunProgram(const QString &program)
+void Preferences::setAutoRunOnTorrentFinishedProgram(const QString &program)
 {
     setValue(u"AutoRun/program"_qs, program);
 }
@@ -980,25 +997,25 @@ void Preferences::resolvePeerHostNames(const bool resolve)
 }
 
 #if (defined(Q_OS_UNIX) && !defined(Q_OS_MACOS))
-bool Preferences::useSystemIconTheme() const
+bool Preferences::useSystemIcons() const
 {
-    return value(u"Preferences/Advanced/useSystemIconTheme"_qs, true);
+    return value(u"Preferences/Advanced/useSystemIconTheme"_qs, false);
 }
 
-void Preferences::useSystemIconTheme(const bool enabled)
+void Preferences::useSystemIcons(const bool enabled)
 {
     setValue(u"Preferences/Advanced/useSystemIconTheme"_qs, enabled);
 }
 #endif
 
-bool Preferences::recursiveDownloadDisabled() const
+bool Preferences::isRecursiveDownloadEnabled() const
 {
-    return value(u"Preferences/Advanced/DisableRecursiveDownload"_qs, false);
+    return !value(u"Preferences/Advanced/DisableRecursiveDownload"_qs, false);
 }
 
-void Preferences::disableRecursiveDownload(const bool disable)
+void Preferences::setRecursiveDownloadEnabled(const bool enable)
 {
-    setValue(u"Preferences/Advanced/DisableRecursiveDownload"_qs, disable);
+    setValue(u"Preferences/Advanced/DisableRecursiveDownload"_qs, !enable);
 }
 
 #ifdef Q_OS_WIN
@@ -1159,6 +1176,16 @@ void Preferences::setTrackerPort(const int port)
     setValue(u"Preferences/Advanced/trackerPort"_qs, port);
 }
 
+bool Preferences::isTrackerPortForwardingEnabled() const
+{
+    return value(u"Preferences/Advanced/trackerPortForwarding"_qs, false);
+}
+
+void Preferences::setTrackerPortForwardingEnabled(const bool enabled)
+{
+    setValue(u"Preferences/Advanced/trackerPortForwarding"_qs, enabled);
+}
+
 #if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
 bool Preferences::isUpdateCheckEnabled() const
 {
@@ -1256,22 +1283,24 @@ void Preferences::setMainGeometry(const QByteArray &geometry)
     setValue(u"MainWindow/geometry"_qs, geometry);
 }
 
-QByteArray Preferences::getMainVSplitterState() const
+bool Preferences::isFiltersSidebarVisible() const
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
-    return value<QByteArray>(u"GUI/Qt6/MainWindow/VSplitterState"_qs);
-#else
-    return value<QByteArray>(u"MainWindow/qt5/vsplitterState"_qs);
-#endif
+    return value(u"GUI/MainWindow/FiltersSidebarVisible"_qs, true);
 }
 
-void Preferences::setMainVSplitterState(const QByteArray &state)
+void Preferences::setFiltersSidebarVisible(const bool value)
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
-    setValue(u"GUI/Qt6/MainWindow/VSplitterState"_qs, state);
-#else
-    setValue(u"MainWindow/qt5/vsplitterState"_qs, state);
-#endif
+    setValue(u"GUI/MainWindow/FiltersSidebarVisible"_qs, value);
+}
+
+int Preferences::getFiltersSidebarWidth() const
+{
+    return value(u"GUI/MainWindow/FiltersSidebarWidth"_qs, 120);
+}
+
+void Preferences::setFiltersSidebarWidth(const int value)
+{
+    setValue(u"GUI/MainWindow/FiltersSidebarWidth"_qs, value);
 }
 
 Path Preferences::getMainLastDir() const
@@ -1365,34 +1394,6 @@ void Preferences::setPropTrackerListState(const QByteArray &state)
     setValue(u"GUI/Qt6/TorrentProperties/TrackerListState"_qs, state);
 #else
     setValue(u"TorrentProperties/Trackers/qt5/TrackerListState"_qs, state);
-#endif
-}
-
-QSize Preferences::getRssGeometrySize() const
-{
-    return value<QSize>(u"RssFeedDownloader/geometrySize"_qs);
-}
-
-void Preferences::setRssGeometrySize(const QSize &geometry)
-{
-    setValue(u"RssFeedDownloader/geometrySize"_qs, geometry);
-}
-
-QByteArray Preferences::getRssHSplitterSizes() const
-{
-#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
-    return value<QByteArray>(u"GUI/Qt6/RSSFeedDownloader/HSplitterSizes"_qs);
-#else
-    return value<QByteArray>(u"RssFeedDownloader/qt5/hsplitterSizes"_qs);
-#endif
-}
-
-void Preferences::setRssHSplitterSizes(const QByteArray &sizes)
-{
-#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
-    setValue(u"GUI/Qt6/RSSFeedDownloader/HSplitterSizes"_qs, sizes);
-#else
-    setValue(u"RssFeedDownloader/qt5/hsplitterSizes"_qs, sizes);
 #endif
 }
 
@@ -1614,8 +1615,39 @@ void Preferences::setNetworkCookies(const QList<QNetworkCookie> &cookies)
     QStringList rawCookies;
     rawCookies.reserve(cookies.size());
     for (const QNetworkCookie &cookie : cookies)
-        rawCookies << cookie.toRawForm();
+        rawCookies << QString::fromLatin1(cookie.toRawForm());
     setValue(u"Network/Cookies"_qs, rawCookies);
+}
+
+bool Preferences::useProxyForBT() const
+{
+    return value<bool>(u"Network/Proxy/Profiles/BitTorrent"_qs);
+}
+
+void Preferences::setUseProxyForBT(const bool value)
+{
+    setValue(u"Network/Proxy/Profiles/BitTorrent"_qs, value);
+}
+
+bool Preferences::useProxyForRSS() const
+{
+    return value<bool>(u"Network/Proxy/Profiles/RSS"_qs);
+}
+
+void Preferences::setUseProxyForRSS(const bool value)
+{
+    setValue(u"Network/Proxy/Profiles/RSS"_qs, value);
+}
+
+bool Preferences::useProxyForGeneralPurposes() const
+{
+    return value<bool>(u"Network/Proxy/Profiles/Misc"_qs);
+}
+
+
+void Preferences::setUseProxyForGeneralPurposes(const bool value)
+{
+    setValue(u"Network/Proxy/Profiles/Misc"_qs, value);
 }
 
 bool Preferences::isSpeedWidgetEnabled() const

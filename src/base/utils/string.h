@@ -37,12 +37,14 @@
 #include <Qt>
 #include <QtContainerFwd>
 
+#include "base/global.h"
+
 namespace Utils::String
 {
     QString wildcardToRegexPattern(const QString &pattern);
 
     template <typename T>
-    T unquote(const T &str, const QString &quotes = QChar('"'))
+    T unquote(const T &str, const QString &quotes = u"\""_qs)
     {
         if (str.length() < 2) return str;
 
@@ -58,6 +60,8 @@ namespace Utils::String
     std::optional<bool> parseBool(const QString &string);
     std::optional<int> parseInt(const QString &string);
     std::optional<double> parseDouble(const QString &string);
+
+    QStringList splitCommand(const QString &command);
 
     QString join(const QList<QStringView> &strings, QStringView separator);
 

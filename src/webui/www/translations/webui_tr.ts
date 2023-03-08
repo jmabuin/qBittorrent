@@ -42,6 +42,30 @@
         <source>Don't create subfolder</source>
         <translation>Alt klasör oluşturma</translation>
     </message>
+    <message>
+        <source>Manual</source>
+        <translation>Elle</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Otomatik</translation>
+    </message>
+    <message>
+        <source>Metadata received</source>
+        <translation>Üstveriler alındı</translation>
+    </message>
+    <message>
+        <source>Files checked</source>
+        <translation>Dosyalar denetlendi</translation>
+    </message>
+    <message>
+        <source>Stop condition:</source>
+        <translation>Durdurma koşulu:</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Yok</translation>
+    </message>
 </context>
 <context>
     <name>CategoryFilterModel</name>
@@ -77,16 +101,16 @@
         <translation>Torrent'leri duraklat</translation>
     </message>
     <message>
-        <source>Delete torrents</source>
-        <translation>Torrent'leri sil</translation>
-    </message>
-    <message>
         <source>New Category</source>
         <translation>Yeni Kategori</translation>
     </message>
     <message>
         <source>Edit category...</source>
         <translation>Kategoriyi düzenle...</translation>
+    </message>
+    <message>
+        <source>Remove torrents</source>
+        <translation>Torrent'leri kaldır</translation>
     </message>
 </context>
 <context>
@@ -272,10 +296,6 @@
         <translation>Yerel torrent'i gönder</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete the selected torrents from the transfer list?</source>
-        <translation>Seçilen torrent'leri aktarım listesinden silmek istediğinize emin misiniz?</translation>
-    </message>
-    <message>
         <source>Save</source>
         <translation>Kaydet</translation>
     </message>
@@ -363,6 +383,10 @@
         <source>Original author</source>
         <translation>Orijinal hazırlayanı</translation>
     </message>
+    <message>
+        <source>Are you sure you want to remove the selected torrents from the transfer list?</source>
+        <translation>Seçilen torrent'leri aktarım listesinden kaldırmak istediğinize emin misiniz?</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -425,10 +449,6 @@
     <message>
         <source>Pause</source>
         <translation>Duraklat</translation>
-    </message>
-    <message>
-        <source>Delete</source>
-        <translation>Sil</translation>
     </message>
     <message>
         <source>Pause All</source>
@@ -571,6 +591,34 @@
         <source>RSS</source>
         <translation>RSS</translation>
     </message>
+    <message>
+        <source>Filters Sidebar</source>
+        <translation>Süzgeçler Kenar Çubuğu</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>İptal</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Kaldır</translation>
+    </message>
+    <message>
+        <source>Would you like to resume all torrents?</source>
+        <translation>Tüm torrent'leri devam ettirmek ister misiniz?</translation>
+    </message>
+    <message>
+        <source>Would you like to pause all torrents?</source>
+        <translation>Tüm torrent'leri duraklatmak ister misiniz?</translation>
+    </message>
+    <message>
+        <source>Execution Log</source>
+        <translation>Çalıştırma Günlüğü</translation>
+    </message>
+    <message>
+        <source>Log</source>
+        <translation>Günlük</translation>
+    </message>
 </context>
 <context>
     <name>OptionsDialog</name>
@@ -609,10 +657,6 @@
     <message>
         <source>Email notification upon download completion</source>
         <translation>İndirmenin tamamlanması üzerine e-posta bildirimi yap</translation>
-    </message>
-    <message>
-        <source>Run external program on torrent completion</source>
-        <translation>Torrent tamamlanmasında harici program çalıştır</translation>
     </message>
     <message>
         <source>IP Filtering</source>
@@ -748,7 +792,7 @@
     </message>
     <message>
         <source>(None)</source>
-        <translation>(Yok)</translation>
+        <translation type="vanished">(Yok)</translation>
     </message>
     <message>
         <source>SOCKS4</source>
@@ -776,7 +820,7 @@
     </message>
     <message>
         <source>Use proxy only for torrents</source>
-        <translation>Sadece torrent'ler için proksi kullan</translation>
+        <translation type="vanished">Sadece torrent'ler için proksi kullan</translation>
     </message>
     <message>
         <source>Filter path (.dat, .p2p, .p2b):</source>
@@ -1121,10 +1165,6 @@
         <translation>Sömürü önleyici</translation>
     </message>
     <message>
-        <source>Enable OS cache:</source>
-        <translation>İS önbelleğini etkinleştir:</translation>
-    </message>
-    <message>
         <source>When ratio reaches</source>
         <translation>Oran şu değere ulaştığında</translation>
     </message>
@@ -1281,10 +1321,6 @@
         <translation>yasaklama süresi:</translation>
     </message>
     <message>
-        <source>Use piece extent affinity (requires libtorrent &gt;= 1.2.2):</source>
-        <translation>Parça kapsam benzeşimi kullan (libtorrent &gt;= 1.2.2 gerektirir):</translation>
-    </message>
-    <message>
         <source>Stop tracker timeout:</source>
         <translation>İzleyiciyi durdurma zaman aşımı:</translation>
     </message>
@@ -1365,10 +1401,6 @@
         <translation>Bildirim başına en fazla makale sayısı:</translation>
     </message>
     <message>
-        <source>Max concurrent HTTP announces (requires libtorrent &gt;= 1.2.7):</source>
-        <translation>En fazla eşzamanlı HTTP duyurusu (libtorrent &gt;= 1.2.7 gerektirir):</translation>
-    </message>
-    <message>
         <source> min</source>
         <translation> dak</translation>
     </message>
@@ -1407,10 +1439,6 @@
     <message>
         <source>Peer connection protocol:</source>
         <translation>Kişi bağlantı protokolü:</translation>
-    </message>
-    <message>
-        <source>Support internationalized domain name (IDN) (requires libtorrent &gt;= 1.2.12):</source>
-        <translation>Uluslararasılaştırılmış etki alanı adını (IDN) destekle (libtorrent &gt;= 1.2.12 gerektirir):</translation>
     </message>
     <message>
         <source>Torrent content layout:</source>
@@ -1475,6 +1503,222 @@
     <message>
         <source>Server-side request forgery (SSRF) mitigation:</source>
         <translation>Sunucu tarafı istek sahteciliği (SSRF) azaltma:</translation>
+    </message>
+    <message>
+        <source>Disk queue size:</source>
+        <translation>Disk kuyruk boyutu:</translation>
+    </message>
+    <message>
+        <source>Log performance warnings</source>
+        <translation>Performans uyarılarını günlükle</translation>
+    </message>
+    <message>
+        <source>Maximum outstanding requests to a single peer:</source>
+        <translation>Tek bir kişi için bekleyen en fazla istek sayısı:</translation>
+    </message>
+    <message>
+        <source>Max active checking torrents:</source>
+        <translation>En fazla etkin denetlenen torrent:</translation>
+    </message>
+    <message>
+        <source>Memory mapped files</source>
+        <translation>Bellek eşlemeli dosyalar</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Varsayılan</translation>
+    </message>
+    <message>
+        <source>POSIX-compliant</source>
+        <translation>POSIX uyumlu</translation>
+    </message>
+    <message>
+        <source>This option is less effective on Linux</source>
+        <translation>Bu seçenek Linux'ta daha az etkilidir</translation>
+    </message>
+    <message>
+        <source>Disk IO type (libtorrent &gt;= 2.0; requires restart):</source>
+        <translation>Disk G/Ç türü (libtorrent &gt;= 2.0; yeniden başlatma gerektirir):</translation>
+    </message>
+    <message>
+        <source>Write-through (requires libtorrent &gt;= 2.0.6)</source>
+        <translation>Baştan sona yazma (libtorrent &gt;= 2.0.6 gerektirir)</translation>
+    </message>
+    <message>
+        <source>It controls the internal state update interval which in turn will affect UI updates</source>
+        <translation>Arayüz güncellemelerini etkileyecek olan dahili durum güncelleme aralığını denetler.</translation>
+    </message>
+    <message>
+        <source>Disk IO read mode:</source>
+        <translation>Disk G/Ç okuma kipi:</translation>
+    </message>
+    <message>
+        <source>Disable OS cache</source>
+        <translation>İS önbelleğini etkisizleştir</translation>
+    </message>
+    <message>
+        <source>Disk IO write mode:</source>
+        <translation>Disk G/Ç yazma kipi:</translation>
+    </message>
+    <message>
+        <source>Use piece extent affinity:</source>
+        <translation>Parça kapsam benzeşimi kullan</translation>
+    </message>
+    <message>
+        <source>Max concurrent HTTP announces:</source>
+        <translation>En fazla eşzamanlı HTTP duyurusu:</translation>
+    </message>
+    <message>
+        <source>Enable OS cache</source>
+        <translation>İS önbelleğini etkinleştir</translation>
+    </message>
+    <message>
+        <source>Refresh interval:</source>
+        <translation>Yenileme aralığı:</translation>
+    </message>
+    <message>
+        <source>Physical memory (RAM) usage limit (applied if libtorrent &gt;= 2.0):</source>
+        <translation>Fiziksel bellek (RAM) kullanım sınırı (libtorrent &gt;= 2.0 ise uygulanır):</translation>
+    </message>
+    <message>
+        <source>ms</source>
+        <translation>ms</translation>
+    </message>
+    <message>
+        <source>Excluded file names</source>
+        <translation>Hariç tutulan dosya adları</translation>
+    </message>
+    <message>
+        <source>Support internationalized domain name (IDN):</source>
+        <translation>Uluslararasılaştırılmış etki alanı adını (IDN) destekle:</translation>
+    </message>
+    <message>
+        <source>Run external program on torrent finished</source>
+        <translation>Torrent tamamlandığında harici program çalıştır</translation>
+    </message>
+    <message>
+        <source>Whitelist for filtering HTTP Host header values.
+In order to defend against DNS rebinding attack,
+you should put in domain names used by WebUI server.
+
+Use ';' to split multiple entries. Can use wildcard '*'.</source>
+        <translation>HTTP Anamakine üstbilgi değerlerini süzmek için beyaz liste.
+DNS'i yeniden bağlama saldırılarına karşı savunmak için, Web Arayüzü
+sunucusu tarafından kullanılan etki alanı adlarına eklemelisiniz.
+
+Çoklu girişleri bölmek için ';' kullanın. '*' joker karakteri kullanılabilir.</translation>
+    </message>
+    <message>
+        <source>Run external program on torrent added</source>
+        <translation>Torrent eklendiğinde harici program çalıştır</translation>
+    </message>
+    <message>
+        <source>HTTPS certificate should not be empty</source>
+        <translation>HTTPS sertifikası boş olmamalıdır</translation>
+    </message>
+    <message>
+        <source>Specify reverse proxy IPs (or subnets, e.g. 0.0.0.0/24) in order to use forwarded client address (X-Forwarded-For header). Use ';' to split multiple entries.</source>
+        <translation>Yönlendirilen istemci adresini (X-Forwarded-For başlığı) kullanmak için ters proksi IP'lerini (veya alt ağları, örn. 0.0.0.0/24) belirtin. Birden çok girişi bölmek için ';' kullanın.</translation>
+    </message>
+    <message>
+        <source>HTTPS key should not be empty</source>
+        <translation>HTTPS anahtarı boş olmamalıdır</translation>
+    </message>
+    <message>
+        <source>Run external program</source>
+        <translation>Harici programı çalıştır</translation>
+    </message>
+    <message>
+        <source>Files checked</source>
+        <translation>Dosyalar denetlendi</translation>
+    </message>
+    <message>
+        <source>Enable port forwarding for embedded tracker:</source>
+        <translation>Gömülü izleyici için bağlantı noktası yönlendirmeyi etkinleştir:</translation>
+    </message>
+    <message>
+        <source>If checked, hostname lookups are done via the proxy.</source>
+        <translation>Eğer işaretlendiyse, anamakine adı aramaları proksi aracılığıyla yapılır.</translation>
+    </message>
+    <message>
+        <source>Use proxy for hostname lookup</source>
+        <translation>Anamakine adı araması için proksi kullan</translation>
+    </message>
+    <message>
+        <source>Metadata received</source>
+        <translation>Üstveriler alındı</translation>
+    </message>
+    <message>
+        <source>Torrent stop condition:</source>
+        <translation>Torrent durdurma koşulu:</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Yok</translation>
+    </message>
+    <message>
+        <source>Example: 172.17.32.0/24, fdff:ffff:c8::/40</source>
+        <translation>Örnek: 172.17.32.0/24, fdff:ffff:c8::/40</translation>
+    </message>
+    <message>
+        <source>SQLite database (experimental)</source>
+        <translation>SQLite veritabanı (deneysel)</translation>
+    </message>
+    <message>
+        <source>Resume data storage type (requires restart):</source>
+        <translation>Devam verisi depolama türü (yeniden başlatma gerektirir):</translation>
+    </message>
+    <message>
+        <source>Fastresume files</source>
+        <translation>Hızlı devam dosyaları</translation>
+    </message>
+    <message>
+        <source>Backup the log file after:</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>days</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Log file</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Behavior</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Delete backup logs older than:</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Use proxy for BitTorrent purposes</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>years</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Save path:</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>months</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Remember Multi-Rename settings</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Use proxy for general purposes</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Use proxy for RSS purposes</source>
+        <translation type="unfinished" />
     </message>
 </context>
 <context>
@@ -1554,6 +1798,10 @@
     <message>
         <source>Add peers...</source>
         <translation>Kişileri ekle...</translation>
+    </message>
+    <message>
+        <source>Peer ID Client</source>
+        <translation>Kişi Kimliği İstemcisi</translation>
     </message>
 </context>
 <context>
@@ -1775,6 +2023,66 @@
     <message>
         <source>Progress:</source>
         <translation>İlerleme:</translation>
+    </message>
+    <message>
+        <source>Use regular expressions</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Filename</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Filename + Extension</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Enumerate Files</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Rename failed: file or folder already exists</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Match all occurences</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Toggle Selection</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Replacement Input</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Replace</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Extension</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Replace All</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Include files</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Include folders</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Search Files</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Case sensitive</source>
+        <translation type="unfinished" />
     </message>
 </context>
 <context>
@@ -2001,7 +2309,7 @@
     <message>
         <source>Name</source>
         <comment>i.e: torrent name</comment>
-        <translation>Adı</translation>
+        <translation>Ad</translation>
     </message>
     <message>
         <source>Size</source>
@@ -2164,10 +2472,6 @@
         <translation>İleti</translation>
     </message>
     <message>
-        <source>Downloaded</source>
-        <translation>İndiren</translation>
-    </message>
-    <message>
         <source>Tracker URL:</source>
         <translation>İzleyici URL'si:</translation>
     </message>
@@ -2204,10 +2508,6 @@
         <translation>İzleyici URL'sini kopyala</translation>
     </message>
     <message>
-        <source>Add a new tracker...</source>
-        <translation>Yeni bir izleyici ekle...</translation>
-    </message>
-    <message>
         <source>Edit tracker URL...</source>
         <translation>İzleyici URL'sini düzenle...</translation>
     </message>
@@ -2241,26 +2541,42 @@
     </message>
     <message>
         <source>Name</source>
-        <translation>Adı</translation>
+        <translation>Ad</translation>
     </message>
     <message>
         <source>Progress</source>
         <translation>İlerleme</translation>
     </message>
     <message>
-        <source>Size</source>
-        <translation>Boyut</translation>
+        <source>Total Size</source>
+        <translation>Toplam Boyut</translation>
+    </message>
+    <message>
+        <source>Times Downloaded</source>
+        <translation>İndirilme Sayısı</translation>
+    </message>
+    <message>
+        <source>Add trackers...</source>
+        <translation>İzleyicileri ekle...</translation>
+    </message>
+    <message>
+        <source>Renamed</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Original</source>
+        <translation type="unfinished" />
     </message>
 </context>
 <context>
     <name>TrackersAdditionDialog</name>
     <message>
-        <source>Trackers addition dialog</source>
-        <translation>İzleyicileri ekleme ileti penceresi</translation>
-    </message>
-    <message>
         <source>List of trackers to add (one per line):</source>
         <translation>Eklemek için izleyicilerin listesi (her satıra bir tane):</translation>
+    </message>
+    <message>
+        <source>Add trackers</source>
+        <translation>İzleyicileri ekle</translation>
     </message>
 </context>
 <context>
@@ -2292,7 +2608,7 @@
     </message>
     <message>
         <source>Queued</source>
-        <translation>Kuyrukta</translation>
+        <translation>Kuyruğa Alındı</translation>
     </message>
     <message>
         <source>Errored</source>
@@ -2388,11 +2704,6 @@
         <translation>Duraklat</translation>
     </message>
     <message>
-        <source>Delete</source>
-        <comment>Delete the torrent</comment>
-        <translation>Sil</translation>
-    </message>
-    <message>
         <source>Limit share ratio...</source>
         <translation>Paylaşma oranını sınırla...</translation>
     </message>
@@ -2467,10 +2778,6 @@
         <translation>Sıralı düzende indir</translation>
     </message>
     <message>
-        <source>Force Recheck</source>
-        <translation>Yeniden Denetlemeye Zorla</translation>
-    </message>
-    <message>
         <source>New Category</source>
         <translation>Yeni Kategori</translation>
     </message>
@@ -2520,7 +2827,7 @@
     </message>
     <message>
         <source>Name</source>
-        <translation>Adı</translation>
+        <translation>Ad</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -2545,6 +2852,22 @@
     <message>
         <source>Torrent ID</source>
         <translation>Torrent kimliği</translation>
+    </message>
+    <message>
+        <source>Export .torrent</source>
+        <translation>.torrent'i dışa aktar</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Kaldır</translation>
+    </message>
+    <message>
+        <source>Rename Files...</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Renaming</source>
+        <translation type="unfinished" />
     </message>
 </context>
 <context>
@@ -2580,16 +2903,12 @@
 <context>
     <name>confirmDeletionDlg</name>
     <message>
-        <source>Deletion confirmation</source>
-        <translation>Silme onayı</translation>
+        <source>Also permanently delete the files</source>
+        <translation>Ayrıca dosyaları kalıcı olarak sil</translation>
     </message>
     <message>
-        <source>Also delete the files on the hard disk</source>
-        <translation>Aynı zamanda sabit diskteki dosyaları da sil</translation>
-    </message>
-    <message>
-        <source>Deletion confirmation - qBittorrent</source>
-        <translation>Silme onayı - qBittorrent</translation>
+        <source>Remove torrent(s)</source>
+        <translation>Torrent'(ler)i kaldır</translation>
     </message>
 </context>
 <context>
@@ -2783,6 +3102,14 @@
         <source>showing</source>
         <translation>gösterilen</translation>
     </message>
+    <message>
+        <source>Click the "Search plugins..." button at the bottom right of the window to install some.</source>
+        <translation>Bazılarını yüklemek için pencerenin sağ altındaki "Arama eklentileri..." düğmesine tıklayın.</translation>
+    </message>
+    <message>
+        <source>There aren't any search plugins installed.</source>
+        <translation>Yüklü herhangi bir arama eklentisi yok.</translation>
+    </message>
 </context>
 <context>
     <name>PluginSelectDlg</name>
@@ -2827,7 +3154,7 @@
     <name>SearchResultsTable</name>
     <message>
         <source>Name</source>
-        <translation>Adı</translation>
+        <translation>Ad</translation>
     </message>
     <message>
         <source>Size</source>
@@ -2850,7 +3177,7 @@
     <name>SearchPluginsTable</name>
     <message>
         <source>Name</source>
-        <translation>Adı</translation>
+        <translation>Ad</translation>
     </message>
     <message>
         <source>Url</source>
@@ -2907,10 +3234,6 @@
         <translation>Etiket ekle...</translation>
     </message>
     <message>
-        <source>Delete torrents</source>
-        <translation>Torrent'leri sil</translation>
-    </message>
-    <message>
         <source>Tag:</source>
         <translation>Etiket:</translation>
     </message>
@@ -2933,6 +3256,10 @@
     <message>
         <source>Remove tag</source>
         <translation>Etiketi kaldır</translation>
+    </message>
+    <message>
+        <source>Remove torrents</source>
+        <translation>Torrent'leri kaldır</translation>
     </message>
 </context>
 <context>
@@ -2986,7 +3313,7 @@
     </message>
     <message>
         <source>Name:</source>
-        <translation>Adı:</translation>
+        <translation>Ad:</translation>
     </message>
     <message>
         <source>About qBittorrent</source>
@@ -3060,7 +3387,7 @@
     </message>
     <message>
         <source>Name</source>
-        <translation>Adı</translation>
+        <translation>Ad</translation>
     </message>
     <message>
         <source>Description page URL</source>
@@ -3084,6 +3411,10 @@
     <message>
         <source>New name:</source>
         <translation>Yeni adı:</translation>
+    </message>
+    <message>
+        <source>Renaming)</source>
+        <translation type="unfinished" />
     </message>
 </context>
 <context>
@@ -3433,10 +3764,6 @@ Desteklenen biçimler: S01E01, 1x1, 2017.12.31 ve 31.12.2017 (Tarih biçimleri d
 <context>
     <name>TrackerFiltersList</name>
     <message>
-        <source>Delete torrents</source>
-        <translation>Torrent'leri sil</translation>
-    </message>
-    <message>
         <source>Resume torrents</source>
         <translation>Torrent'lere devam et</translation>
     </message>
@@ -3452,6 +3779,10 @@ Desteklenen biçimler: S01E01, 1x1, 2017.12.31 ve 31.12.2017 (Tarih biçimleri d
         <source>Pause torrents</source>
         <translation>Torrent'leri duraklat</translation>
     </message>
+    <message>
+        <source>Remove torrents</source>
+        <translation>Torrent'leri kaldır</translation>
+    </message>
 </context>
 <context>
     <name>FeedListWidget</name>
@@ -3462,6 +3793,141 @@ Desteklenen biçimler: S01E01, 1x1, 2017.12.31 ve 31.12.2017 (Tarih biçimleri d
     <message>
         <source>Unread</source>
         <translation>Okunmadı</translation>
+    </message>
+</context>
+<context>
+    <name>ExecutionLogWidget</name>
+    <message>
+        <source>General</source>
+        <translation>Genel</translation>
+    </message>
+    <message>
+        <source>Blocked</source>
+        <translation>Engellenmiş</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Bilinmiyor</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>Tümü</translation>
+    </message>
+    <message>
+        <source>showing</source>
+        <translation>gösterilen</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Kopyala</translation>
+    </message>
+    <message>
+        <source>Select All</source>
+        <translation>Tümünü Seç</translation>
+    </message>
+    <message>
+        <source>ID</source>
+        <translation>Kimlik</translation>
+    </message>
+    <message>
+        <source>Log Type</source>
+        <translation>Günlük Türü</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Temizle</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation>Uyarı</translation>
+    </message>
+    <message>
+        <source>Information Messages</source>
+        <translation>Bilgi İletileri</translation>
+    </message>
+    <message>
+        <source>Warning Messages</source>
+        <translation>Uyarı İletileri</translation>
+    </message>
+    <message>
+        <source>Filter logs</source>
+        <translation>Günlükleri süz</translation>
+    </message>
+    <message>
+        <source>Blocked IPs</source>
+        <translation>Engellenen IP'ler</translation>
+    </message>
+    <message>
+        <source>out of</source>
+        <translation>/</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>Durum</translation>
+    </message>
+    <message>
+        <source>Timestamp</source>
+        <translation>Zaman Damgası</translation>
+    </message>
+    <message>
+        <source>Clear All</source>
+        <translation>Tümünü Temizle</translation>
+    </message>
+    <message>
+        <source>Message</source>
+        <translation>İleti</translation>
+    </message>
+    <message>
+        <source>Log Levels:</source>
+        <translation>Günlük Seviyeleri:</translation>
+    </message>
+    <message>
+        <source>Reason</source>
+        <translation>Sebep</translation>
+    </message>
+    <message>
+        <source>item</source>
+        <translation>öğe</translation>
+    </message>
+    <message>
+        <source>IP</source>
+        <translation>IP</translation>
+    </message>
+    <message>
+        <source>Banned</source>
+        <translation>Yasaklı</translation>
+    </message>
+    <message>
+        <source>Normal Messages</source>
+        <translation>Normal İletiler</translation>
+    </message>
+    <message>
+        <source>Critical</source>
+        <translation>Önemli</translation>
+    </message>
+    <message>
+        <source>Critical Messages</source>
+        <translation>Önemli İletiler</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>Normal</translation>
+    </message>
+    <message>
+        <source>items</source>
+        <translation>öğe</translation>
+    </message>
+    <message>
+        <source>Results</source>
+        <translation>Sonuçlar</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation>Bilgi</translation>
+    </message>
+    <message>
+        <source>Choose a log level...</source>
+        <translation>Bir günlük seviyesi seçin...</translation>
     </message>
 </context>
 </TS>

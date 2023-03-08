@@ -38,7 +38,6 @@
 
 class QDateTime;
 class QNetworkCookie;
-class QSize;
 class QTime;
 
 namespace Scheduler
@@ -94,11 +93,6 @@ class Preferences : public QObject
 
     Preferences();
 
-    static Preferences *m_instance;
-
-signals:
-    void changed();
-
 public:
     static void initInstance();
     static void freeInstance();
@@ -127,8 +121,6 @@ public:
     void setStatusbarDisplayed(bool displayed);
     bool isToolbarDisplayed() const;
     void setToolbarDisplayed(bool displayed);
-    bool startMinimized() const;
-    void setStartMinimized(bool b);
     bool isSplashScreenDisabled() const;
     void setSplashScreenDisabled(bool b);
     bool preventFromSuspendWhenDownloading() const;
@@ -205,6 +197,8 @@ public:
     void setWebUIBanDuration(std::chrono::seconds duration);
     int getWebUISessionTimeout() const;
     void setWebUISessionTimeout(int timeout);
+    QString getWebAPISessionCookieName() const;
+    void setWebAPISessionCookieName(const QString &cookieName);
 
     // WebUI security
     bool isWebUiClickjackingProtectionEnabled() const;
@@ -257,14 +251,20 @@ public:
     void setUILockPassword(const QByteArray &password);
     bool isUILocked() const;
     void setUILocked(bool locked);
-    bool isAutoRunEnabled() const;
-    void setAutoRunEnabled(bool enabled);
-    QString getAutoRunProgram() const;
-    void setAutoRunProgram(const QString &program);
+
+    bool isAutoRunOnTorrentAddedEnabled() const;
+    void setAutoRunOnTorrentAddedEnabled(const bool enabled);
+    QString getAutoRunOnTorrentAddedProgram() const;
+    void setAutoRunOnTorrentAddedProgram(const QString &program);
+    bool isAutoRunOnTorrentFinishedEnabled() const;
+    void setAutoRunOnTorrentFinishedEnabled(bool enabled);
+    QString getAutoRunOnTorrentFinishedProgram() const;
+    void setAutoRunOnTorrentFinishedProgram(const QString &program);
 #if defined(Q_OS_WIN)
     bool isAutoRunConsoleEnabled() const;
     void setAutoRunConsoleEnabled(bool enabled);
 #endif
+
     bool shutdownWhenDownloadsComplete() const;
     void setShutdownWhenDownloadsComplete(bool shutdown);
     bool suspendWhenDownloadsComplete() const;
@@ -282,11 +282,11 @@ public:
     bool resolvePeerHostNames() const;
     void resolvePeerHostNames(bool resolve);
 #if (defined(Q_OS_UNIX) && !defined(Q_OS_MACOS))
-    bool useSystemIconTheme() const;
-    void useSystemIconTheme(bool enabled);
+    bool useSystemIcons() const;
+    void useSystemIcons(bool enabled);
 #endif
-    bool recursiveDownloadDisabled() const;
-    void disableRecursiveDownload(bool disable = true);
+    bool isRecursiveDownloadEnabled() const;
+    void setRecursiveDownloadEnabled(bool enable);
 #ifdef Q_OS_WIN
     bool neverCheckFileAssoc() const;
     void setNeverCheckFileAssoc(bool check = true);
@@ -303,6 +303,8 @@ public:
 #endif
     int getTrackerPort() const;
     void setTrackerPort(int port);
+    bool isTrackerPortForwardingEnabled() const;
+    void setTrackerPortForwardingEnabled(bool enabled);
 #if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
     bool isUpdateCheckEnabled() const;
     void setUpdateCheckEnabled(bool enabled);
@@ -340,8 +342,10 @@ public:
     void setAcceptedLegal(bool accepted);
     QByteArray getMainGeometry() const;
     void setMainGeometry(const QByteArray &geometry);
-    QByteArray getMainVSplitterState() const;
-    void setMainVSplitterState(const QByteArray &state);
+    bool isFiltersSidebarVisible() const;
+    void setFiltersSidebarVisible(bool value);
+    int getFiltersSidebarWidth() const;
+    void setFiltersSidebarWidth(int value);
     Path getMainLastDir() const;
     void setMainLastDir(const Path &path);
     QByteArray getPeerListState() const;
@@ -356,10 +360,6 @@ public:
     void setPropVisible(bool visible);
     QByteArray getPropTrackerListState() const;
     void setPropTrackerListState(const QByteArray &state);
-    QSize getRssGeometrySize() const;
-    void setRssGeometrySize(const QSize &geometry);
-    QByteArray getRssHSplitterSizes() const;
-    void setRssHSplitterSizes(const QByteArray &sizes);
     QStringList getRssOpenFolders() const;
     void setRssOpenFolders(const QStringList &folders);
     QByteArray getRssSideSplitterState() const;
@@ -397,6 +397,13 @@ public:
     QList<QNetworkCookie> getNetworkCookies() const;
     void setNetworkCookies(const QList<QNetworkCookie> &cookies);
 
+    bool useProxyForBT() const;
+    void setUseProxyForBT(bool value);
+    bool useProxyForRSS() const;
+    void setUseProxyForRSS(bool value);
+    bool useProxyForGeneralPurposes() const;
+    void setUseProxyForGeneralPurposes(bool value);
+
     // SpeedWidget
     bool isSpeedWidgetEnabled() const;
     void setSpeedWidgetEnabled(bool enabled);
@@ -412,4 +419,10 @@ public slots:
     void setTrackerFilterState(bool checked);
 
     void apply();
+
+signals:
+    void changed();
+
+private:
+    static Preferences *m_instance;
 };

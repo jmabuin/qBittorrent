@@ -55,6 +55,7 @@ namespace Net
 class PeerListWidget final : public QTreeView
 {
     Q_OBJECT
+    Q_DISABLE_COPY_MOVE(PeerListWidget)
 
 public:
     enum PeerListColumns
@@ -65,6 +66,7 @@ public:
         CONNECTION,
         FLAGS,
         CLIENT,
+        PEERID_CLIENT,
         PROGRESS,
         DOWN_SPEED,
         UP_SPEED,
@@ -86,7 +88,7 @@ public:
     void clear();
 
 private slots:
-    void loadSettings();
+    bool loadSettings();
     void saveSettings() const;
     void displayColumnHeaderMenu();
     void showPeerListMenu();

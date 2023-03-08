@@ -35,6 +35,7 @@
 #include <QDataStream>
 #include <QFile>
 
+#include "base/global.h"
 #include "base/logger.h"
 
 namespace
@@ -47,7 +48,7 @@ namespace
             unsigned char octetIndex = 0;
 
             const char *octetStart = str;
-            char *endptr;
+            char *endptr = nullptr;
             for (; *str; ++str)
             {
                 if (*str == '.')
@@ -617,17 +618,17 @@ void FilterParserThread::run()
 {
     qDebug("Processing filter file");
     int ruleCount = 0;
-    if (m_filePath.hasExtension(QLatin1String(".p2p")))
+    if (m_filePath.hasExtension(u".p2p"_qs))
     {
         // PeerGuardian p2p file
         ruleCount = parseP2PFilterFile();
     }
-    else if (m_filePath.hasExtension(QLatin1String(".p2b")))
+    else if (m_filePath.hasExtension(u".p2b"_qs))
     {
         // PeerGuardian p2b file
         ruleCount = parseP2BFilterFile();
     }
-    else if (m_filePath.hasExtension(QLatin1String(".dat")))
+    else if (m_filePath.hasExtension(u".dat"_qs))
     {
         // eMule DAT format
         ruleCount = parseDATFilterFile();

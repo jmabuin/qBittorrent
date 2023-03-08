@@ -29,14 +29,16 @@
 
 #pragma once
 
+#include <QtGlobal>
 #include <QHash>
-#include <QNetworkAccessManager>
+#include <QNetworkProxy>
 #include <QObject>
 #include <QQueue>
 #include <QSet>
 
 #include "base/path.h"
 
+class QNetworkAccessManager;
 class QNetworkCookie;
 class QNetworkReply;
 class QSslError;
@@ -52,7 +54,11 @@ namespace Net
         static ServiceID fromURL(const QUrl &url);
     };
 
-    uint qHash(const ServiceID &serviceID, uint seed);
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    std::size_t qHash(const ServiceID &serviceID, std::size_t seed = 0);
+#else
+    uint qHash(const ServiceID &serviceID, uint seed = 0);
+#endif
     bool operator==(const ServiceID &lhs, const ServiceID &rhs);
 
     enum class DownloadStatus
@@ -118,6 +124,8 @@ namespace Net
         void finished(const DownloadResult &result);
     };
 
+    class DownloadHandlerImpl;
+
     class DownloadManager : public QObject
     {
         Q_OBJECT
@@ -128,10 +136,10 @@ namespace Net
         static void freeInstance();
         static DownloadManager *instance();
 
-        DownloadHandler *download(const DownloadRequest &downloadRequest);
+        DownloadHandler *download(const DownloadRequest &downloadRequest, bool useProxy);
 
         template <typename Context, typename Func>
-        void download(const DownloadRequest &downloadRequest, Context context, Func &&slot);
+        void download(const DownloadRequest &downloadRequest, bool useProxy, Context context, Func &&slot);
 
         void registerSequentialService(const ServiceID &serviceID);
 
@@ -143,27 +151,29 @@ namespace Net
 
         static bool hasSupportedScheme(const QString &url);
 
-    private slots:
-        void ignoreSslErrors(QNetworkReply *, const QList<QSslError> &);
-
     private:
+        class NetworkCookieJar;
+
         explicit DownloadManager(QObject *parent = nullptr);
 
         void applyProxySettings();
-        void handleReplyFinished(const QNetworkReply *reply);
+        void handleDownloadFinished(DownloadHandlerImpl *finishedHandler);
+        void processRequest(DownloadHandlerImpl *downloadHandler);
 
         static DownloadManager *m_instance;
-        QNetworkAccessManager m_networkManager;
+        NetworkCookieJar *m_networkCookieJar = nullptr;
+        QNetworkAccessManager *m_networkManager = nullptr;
+        QNetworkProxy m_proxy;
 
         QSet<ServiceID> m_sequentialServices;
         QSet<ServiceID> m_busyServices;
-        QHash<ServiceID, QQueue<DownloadHandler *>> m_waitingJobs;
+        QHash<ServiceID, QQueue<DownloadHandlerImpl *>> m_waitingJobs;
     };
 
     template <typename Context, typename Func>
-    void DownloadManager::download(const DownloadRequest &downloadRequest, Context context, Func &&slot)
+    void DownloadManager::download(const DownloadRequest &downloadRequest, bool useProxy, Context context, Func &&slot)
     {
-        const DownloadHandler *handler = download(downloadRequest);
+        const DownloadHandler *handler = download(downloadRequest, useProxy);
         connect(handler, &DownloadHandler::finished, context, slot);
     }
 }

@@ -54,8 +54,17 @@ window.qBittorrent.LocalPreferences = (function() {
             catch (err) {
                 console.error(err);
             }
+        },
+
+        remove: function(key) {
+            try {
+                localStorage.removeItem(key);
+            }
+            catch (err) {
+                console.error(err);
+            }
         }
-    })
+    });
 
     return exports();
 })();

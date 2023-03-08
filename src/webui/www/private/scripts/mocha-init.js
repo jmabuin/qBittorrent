@@ -62,6 +62,7 @@ let recheckFN = function() {};
 let reannounceFN = function() {};
 let setLocationFN = function() {};
 let renameFN = function() {};
+let renameFilesFN = function() {};
 let torrentNewCategoryFN = function() {};
 let torrentSetCategoryFN = function() {};
 let createCategoryFN = function() {};
@@ -88,6 +89,7 @@ let copyInfohashFN = function(policy) {};
 let copyMagnetLinkFN = function() {};
 let copyIdFN = function() {};
 let setQueuePositionFN = function() {};
+let exportTorrentFN = function() {};
 
 const initializeWindows = function() {
     saveWindowSize = function(windowId) {
@@ -381,7 +383,7 @@ const initializeWindows = function() {
         if (hashes.length) {
             new MochaUI.Window({
                 id: 'confirmDeletionPage',
-                title: "QBT_TR(Deletion confirmation)QBT_TR[CONTEXT=confirmDeletionDlg]",
+                title: "QBT_TR(Remove torrent(s))QBT_TR[CONTEXT=confirmDeletionDlg]",
                 loadMethod: 'iframe',
                 contentURL: new URI("confirmdeletion.html").setData("hashes", hashes.join("|")).setData("deleteFiles", deleteFiles).toString(),
                 scrollbars: false,
@@ -487,9 +489,9 @@ const initializeWindows = function() {
                 id: 'setLocationPage',
                 title: "QBT_TR(Set location)QBT_TR[CONTEXT=TransferListWidget]",
                 loadMethod: 'iframe',
-                contentURL: new URI("setlocation.html").setData("hashes", hashes.join('|')).setData("path", row.full_data.save_path).toString(),
+                contentURL: new URI("setlocation.html").setData("hashes", hashes.join('|')).setData("path", encodeURIComponent(row.full_data.save_path)).toString(),
                 scrollbars: false,
-                resizable: false,
+                resizable: true,
                 maximizable: false,
                 paddingVertical: 0,
                 paddingHorizontal: 0,
@@ -511,12 +513,37 @@ const initializeWindows = function() {
                     loadMethod: 'iframe',
                     contentURL: new URI("rename.html").setData("hash", hash).setData("name", row.full_data.name).toString(),
                     scrollbars: false,
-                    resizable: false,
+                    resizable: true,
                     maximizable: false,
                     paddingVertical: 0,
                     paddingHorizontal: 0,
-                    width: 250,
+                    width: 400,
                     height: 100
+                });
+            }
+        }
+    };
+
+    renameFilesFN = function() {
+        const hashes = torrentsTable.selectedRowsIds();
+        if (hashes.length == 1) {
+            const hash = hashes[0];
+            const row = torrentsTable.rows[hash];
+            if (row) {
+                new MochaUI.Window({
+                    id: 'multiRenamePage',
+                    title: "QBT_TR(Renaming)QBT_TR[CONTEXT=TransferListWidget]",
+                    data: { hash: hash, selectedRows: [] },
+                    loadMethod: 'xhr',
+                    contentURL: 'rename_files.html',
+                    scrollbars: false,
+                    resizable: true,
+                    maximizable: false,
+                    paddingVertical: 0,
+                    paddingHorizontal: 0,
+                    width: 800,
+                    height: 420,
+                    resizeLimit: { 'x': [800], 'y': [420] }
                 });
             }
         }
@@ -532,11 +559,11 @@ const initializeWindows = function() {
                 loadMethod: 'iframe',
                 contentURL: new URI("newcategory.html").setData("action", action).setData("hashes", hashes.join('|')).toString(),
                 scrollbars: false,
-                resizable: false,
+                resizable: true,
                 maximizable: false,
                 paddingVertical: 0,
                 paddingHorizontal: 0,
-                width: 250,
+                width: 400,
                 height: 150
             });
         }
@@ -567,11 +594,11 @@ const initializeWindows = function() {
             loadMethod: 'iframe',
             contentURL: new URI("newcategory.html").setData("action", action).toString(),
             scrollbars: false,
-            resizable: false,
+            resizable: true,
             maximizable: false,
             paddingVertical: 0,
             paddingHorizontal: 0,
-            width: 250,
+            width: 400,
             height: 150
         });
         updateMainData();
@@ -587,11 +614,11 @@ const initializeWindows = function() {
             loadMethod: 'iframe',
             contentURL: new URI('newcategory.html').setData("action", action).setData("categoryName", categoryName).setData("savePath", savePath).toString(),
             scrollbars: false,
-            resizable: false,
+            resizable: true,
             maximizable: false,
             paddingVertical: 0,
             paddingHorizontal: 0,
-            width: 250,
+            width: 400,
             height: 150
         });
         updateMainData();
@@ -658,7 +685,7 @@ const initializeWindows = function() {
         if (hashes.length) {
             new MochaUI.Window({
                 id: 'confirmDeletionPage',
-                title: "QBT_TR(Deletion confirmation)QBT_TR[CONTEXT=confirmDeletionDlg]",
+                title: "QBT_TR(Remove torrent(s))QBT_TR[CONTEXT=confirmDeletionDlg]",
                 loadMethod: 'iframe',
                 contentURL: new URI("confirmdeletion.html").setData("hashes", hashes.join("|")).toString(),
                 scrollbars: false,
@@ -682,7 +709,7 @@ const initializeWindows = function() {
                 loadMethod: 'iframe',
                 contentURL: new URI("newtag.html").setData("action", action).setData("hashes", hashes.join("|")).toString(),
                 scrollbars: false,
-                resizable: false,
+                resizable: true,
                 maximizable: false,
                 paddingVertical: 0,
                 paddingHorizontal: 0,
@@ -728,7 +755,7 @@ const initializeWindows = function() {
             loadMethod: 'iframe',
             contentURL: new URI("newtag.html").setData("action", action).toString(),
             scrollbars: false,
-            resizable: false,
+            resizable: true,
             maximizable: false,
             paddingVertical: 0,
             paddingHorizontal: 0,
@@ -799,7 +826,7 @@ const initializeWindows = function() {
         if (hashes.length) {
             new MochaUI.Window({
                 id: 'confirmDeletionPage',
-                title: "QBT_TR(Deletion confirmation)QBT_TR[CONTEXT=confirmDeletionDlg]",
+                title: "QBT_TR(Remove torrent(s))QBT_TR[CONTEXT=confirmDeletionDlg]",
                 loadMethod: 'iframe',
                 contentURL: new URI("confirmdeletion.html").setData("hashes", hashes.join("|")).toString(),
                 scrollbars: false,
@@ -878,14 +905,14 @@ const initializeWindows = function() {
                 hashes = torrentsTable.getFilteredTorrentsHashes('all', CATEGORIES_ALL, TAGS_ALL, TRACKERS_TRACKERLESS);
                 break;
             default:
-                hashes = trackerList.get(trackerHashInt).torrents
+                hashes = trackerList.get(trackerHashInt).torrents;
                 break;
         }
 
         if (hashes.length) {
             new MochaUI.Window({
                 id: 'confirmDeletionPage',
-                title: "QBT_TR(Deletion confirmation)QBT_TR[CONTEXT=confirmDeletionDlg]",
+                title: "QBT_TR(Remove torrent(s))QBT_TR[CONTEXT=confirmDeletionDlg]",
                 loadMethod: 'iframe',
                 contentURL: new URI("confirmdeletion.html").setData("hashes", hashes.join("|")).toString(),
                 scrollbars: false,
@@ -957,18 +984,55 @@ const initializeWindows = function() {
         return torrentsTable.selectedRowsIds().join("\n");
     };
 
-    ['pause', 'resume'].each(function(item) {
-        addClickEvent(item + 'All', function(e) {
-            new Event(e).stop();
+    exportTorrentFN = function() {
+        const hashes = torrentsTable.selectedRowsIds();
+        for (const hash of hashes) {
+            const row = torrentsTable.rows.get(hash);
+            if (!row)
+                return;
+
+            const name = row.full_data.name;
+            const url = new URI("api/v2/torrents/export");
+            url.setData("hash", hash);
+
+            // download response to file
+            const element = document.createElement("a");
+            element.setAttribute("href", url);
+            element.setAttribute("download", name + ".torrent");
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
+    };
+
+    addClickEvent('pauseAll', (e) => {
+        new Event(e).stop();
+
+        if (confirm('QBT_TR(Would you like to pause all torrents?)QBT_TR[CONTEXT=MainWindow]')) {
             new Request({
-                url: 'api/v2/torrents/' + item,
+                url: 'api/v2/torrents/pause',
                 method: 'post',
                 data: {
                     hashes: "all"
                 }
             }).send();
             updateMainData();
-        });
+        }
+    });
+
+    addClickEvent('resumeAll', (e) => {
+        new Event(e).stop();
+
+        if (confirm('QBT_TR(Would you like to resume all torrents?)QBT_TR[CONTEXT=MainWindow]')) {
+            new Request({
+                url: 'api/v2/torrents/resume',
+                method: 'post',
+                data: {
+                    hashes: "all"
+                }
+            }).send();
+            updateMainData();
+        }
     });
 
     ['pause', 'resume', 'recheck'].each(function(item) {
@@ -1049,6 +1113,7 @@ const initializeWindows = function() {
         if (confirm('QBT_TR(Are you sure you want to quit qBittorrent?)QBT_TR[CONTEXT=MainWindow]')) {
             new Request({
                 url: 'api/v2/app/shutdown',
+                method: 'post',
                 onSuccess: function() {
                     document.write('<!doctype html><html lang="${LANG}"><head> <meta charset="UTF-8"> <title>QBT_TR(qBittorrent has been shutdown)QBT_TR[CONTEXT=HttpServer]</title></head><body> <h1 style="text-align: center;">QBT_TR(qBittorrent has been shutdown)QBT_TR[CONTEXT=HttpServer]</h1></body></html>');
                     document.close();

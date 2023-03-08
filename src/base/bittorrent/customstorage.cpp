@@ -34,12 +34,26 @@
 #include "common.h"
 
 #ifdef QBT_USES_LIBTORRENT2
+#include <libtorrent/mmap_disk_io.hpp>
+#include <libtorrent/posix_disk_io.hpp>
 #include <libtorrent/session.hpp>
 
 std::unique_ptr<lt::disk_interface> customDiskIOConstructor(
         lt::io_context &ioContext, const lt::settings_interface &settings, lt::counters &counters)
 {
     return std::make_unique<CustomDiskIOThread>(lt::default_disk_io_constructor(ioContext, settings, counters));
+}
+
+std::unique_ptr<lt::disk_interface> customPosixDiskIOConstructor(
+        lt::io_context &ioContext, const lt::settings_interface &settings, lt::counters &counters)
+{
+    return std::make_unique<CustomDiskIOThread>(lt::posix_disk_io_constructor(ioContext, settings, counters));
+}
+
+std::unique_ptr<lt::disk_interface> customMMapDiskIOConstructor(
+        lt::io_context &ioContext, const lt::settings_interface &settings, lt::counters &counters)
+{
+    return std::make_unique<CustomDiskIOThread>(lt::mmap_disk_io_constructor(ioContext, settings, counters));
 }
 
 CustomDiskIOThread::CustomDiskIOThread(std::unique_ptr<libtorrent::disk_interface> nativeDiskIOThread)
@@ -106,7 +120,7 @@ void CustomDiskIOThread::async_move_storage(lt::storage_index_t storage, std::st
     m_nativeDiskIO->async_move_storage(storage, path, flags
                                        , [=, handler = std::move(handler)](lt::status_t status, const std::string &path, const lt::storage_error &error)
     {
-        if (status != lt::status_t::fatal_disk_error)
+        if ((status != lt::status_t::fatal_disk_error) && (status != lt::status_t::file_exist))
             m_storageData[storage].savePath = newSavePath;
 
         handler(status, path, error);
@@ -208,8 +222,7 @@ void CustomDiskIOThread::handleCompleteFiles(lt::storage_index_t storage, const 
         if (filePath.hasExtension(QB_EXT))
         {
             const Path incompleteFilePath = savePath / filePath;
-            Path completeFilePath = incompleteFilePath;
-            completeFilePath.removeExtension(QB_EXT);
+            const Path completeFilePath = incompleteFilePath.removedExtension(QB_EXT);
             if (completeFilePath.exists())
             {
                 Utils::Fs::removeFile(incompleteFilePath);
@@ -252,7 +265,7 @@ lt::status_t CustomStorage::move_storage(const std::string &savePath, lt::move_f
         handleCompleteFiles(newSavePath);
 
     const lt::status_t ret = lt::default_storage::move_storage(savePath, flags, ec);
-    if (ret != lt::status_t::fatal_disk_error)
+    if ((ret != lt::status_t::fatal_disk_error) && (ret != lt::status_t::file_exist))
         m_savePath = newSavePath;
 
     return ret;
@@ -274,8 +287,7 @@ void CustomStorage::handleCompleteFiles(const Path &savePath)
         if (filePath.hasExtension(QB_EXT))
         {
             const Path incompleteFilePath = savePath / filePath;
-            Path completeFilePath = incompleteFilePath;
-            completeFilePath.removeExtension();
+            const Path completeFilePath = incompleteFilePath.removedExtension(QB_EXT);
             if (completeFilePath.exists())
             {
                 Utils::Fs::removeFile(incompleteFilePath);

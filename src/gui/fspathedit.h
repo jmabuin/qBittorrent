@@ -35,8 +35,8 @@
 namespace Private
 {
     class FileComboEdit;
-    class FileEditorWithCompletion;
     class FileLineEdit;
+    class IFileEditorWithCompletion;
 }
 
 /*!
@@ -46,10 +46,14 @@ namespace Private
 class FileSystemPathEdit : public QWidget
 {
     Q_OBJECT
+    Q_DISABLE_COPY_MOVE(FileSystemPathEdit)
+
     Q_PROPERTY(Mode mode READ mode WRITE setMode)
     Q_PROPERTY(Path selectedPath READ selectedPath WRITE setSelectedPath NOTIFY selectedPathChanged)
     Q_PROPERTY(QString fileNameFilter READ fileNameFilter WRITE setFileNameFilter)
     Q_PROPERTY(QString dialogCaption READ dialogCaption WRITE setDialogCaption)
+
+    class FileSystemPathEditPrivate;
 
 public:
     ~FileSystemPathEdit() override;
@@ -88,7 +92,7 @@ signals:
     void selectedPathChanged(const Path &path);
 
 protected:
-    explicit FileSystemPathEdit(Private::FileEditorWithCompletion *editor, QWidget *parent);
+    explicit FileSystemPathEdit(Private::IFileEditorWithCompletion *editor, QWidget *parent);
 
     template <class Widget>
     Widget *editWidget() const
@@ -100,14 +104,14 @@ protected slots:
     void onPathEdited();
 
 private:
+    Q_DECLARE_PRIVATE(FileSystemPathEdit)
+
     virtual QString editWidgetText() const = 0;
     virtual void setEditWidgetText(const QString &text) = 0;
 
     QWidget *editWidgetImpl() const;
-    Q_DISABLE_COPY_MOVE(FileSystemPathEdit)
-    class FileSystemPathEditPrivate;
-    Q_DECLARE_PRIVATE(FileSystemPathEdit)
-    FileSystemPathEditPrivate *d_ptr;
+
+    FileSystemPathEditPrivate *d_ptr = nullptr;
 };
 
 /// Widget which uses QLineEdit for path editing

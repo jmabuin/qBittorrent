@@ -1,5 +1,6 @@
 /*
  * Bittorrent Client using Qt and libtorrent.
+ * Copyright (C) 2023  Vladimir Golovnev <glassez@yandex.ru>
  * Copyright (C) 2019, 2021  Prince Gupta <jagannatharjun11@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -35,121 +36,364 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPalette>
+#include <QPixmapCache>
 #include <QResource>
 
+#include "base/algorithm.h"
 #include "base/global.h"
 #include "base/logger.h"
 #include "base/path.h"
 #include "base/preferences.h"
+#include "base/profile.h"
 #include "base/utils/fs.h"
+#include "color.h"
 
 namespace
 {
-    const Path DEFAULT_ICONS_DIR {u":icons"_qs};
-    const QString CONFIG_FILE_NAME {QStringLiteral("config.json")};
-    const QString STYLESHEET_FILE_NAME {QStringLiteral("stylesheet.qss")};
+    const QString CONFIG_FILE_NAME = u"config.json"_qs;
+    const QString STYLESHEET_FILE_NAME = u"stylesheet.qss"_qs;
 
-    // Directory used by stylesheet to reference internal resources
-    // for example `icon: url(:/uitheme/file.svg)` will be expected to
-    // point to a file `file.svg` in root directory of CONFIG_FILE_NAME
-    const QString STYLESHEET_RESOURCES_DIR {QStringLiteral(":/uitheme")};
+    bool isDarkTheme()
+    {
+        const QPalette palette = qApp->palette();
+        const QColor &color = palette.color(QPalette::Active, QPalette::Base);
+        return (color.lightness() < 127);
+    }
 
-    const Path THEME_ICONS_DIR {u"icons"_qs};
+    QByteArray readFile(const Path &filePath)
+    {
+        QFile file {filePath.data()};
+        if (!file.exists())
+            return {};
+
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+            return file.readAll();
+
+        LogMsg(UIThemeManager::tr("UITheme - Failed to open \"%1\". Reason: %2")
+               .arg(filePath.filename(), file.errorString())
+               , Log::WARNING);
+        return {};
+    }
+
+    QJsonObject parseThemeConfig(const QByteArray &data)
+    {
+        if (data.isEmpty())
+            return {};
+
+        QJsonParseError jsonError;
+        const QJsonDocument configJsonDoc = QJsonDocument::fromJson(data, &jsonError);
+        if (jsonError.error != QJsonParseError::NoError)
+        {
+            LogMsg(UIThemeManager::tr("Couldn't parse UI Theme configuration file. Reason: %1")
+                   .arg(jsonError.errorString()), Log::WARNING);
+            return {};
+        }
+
+        if (!configJsonDoc.isObject())
+        {
+            LogMsg(UIThemeManager::tr("UI Theme configuration file has invalid format. Reason: %1")
+                   .arg(UIThemeManager::tr("Root JSON value is not an object")), Log::WARNING);
+            return {};
+        }
+
+        return configJsonDoc.object();
+    }
+
+    QHash<QString, QColor> colorsFromJSON(const QJsonObject &jsonObj)
+    {
+        QHash<QString, QColor> colors;
+        for (auto colorNode = jsonObj.constBegin(); colorNode != jsonObj.constEnd(); ++colorNode)
+        {
+            const QColor color {colorNode.value().toString()};
+            if (!color.isValid())
+            {
+                LogMsg(UIThemeManager::tr("Invalid color for ID \"%1\" is provided by theme")
+                       .arg(colorNode.key()), Log::WARNING);
+                continue;
+            }
+
+            colors.insert(colorNode.key(), color);
+        }
+
+        return colors;
+    }
 
     Path findIcon(const QString &iconId, const Path &dir)
     {
-        const Path pathSvg = dir / Path(iconId + QLatin1String(".svg"));
+        const Path pathSvg = dir / Path(iconId + u".svg");
         if (pathSvg.exists())
             return pathSvg;
 
-        const Path pathPng = dir / Path(iconId + QLatin1String(".png"));
+        const Path pathPng = dir / Path(iconId + u".png");
         if (pathPng.exists())
             return pathPng;
 
         return {};
     }
 
-    QByteArray readFile(const Path &filePath)
+    class DefaultThemeSource final : public UIThemeSource
     {
-        QFile file {filePath.data()};
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    public:
+        DefaultThemeSource()
         {
-            LogMsg(UIThemeManager::tr("UITheme - Failed to open \"%1\". Reason: %2")
-                    .arg(filePath.filename(), file.errorString())
-                   , Log::WARNING);
+            loadColors();
+        }
+
+        QByteArray readStyleSheet() override
+        {
             return {};
         }
 
-        return file.readAll();
-    }
-
-    class QRCThemeSource final : public UIThemeSource
-    {
-    public:
-        QByteArray readStyleSheet() override
+        QColor getColor(const QString &colorId, const ColorMode colorMode) const override
         {
-            return readFile(m_qrcThemeDir / Path(STYLESHEET_FILE_NAME));
+            if (colorMode == ColorMode::Dark)
+            {
+                if (const QColor color = m_darkModeColors.value(colorId)
+                        ; color.isValid())
+                {
+                    return color;
+                }
+            }
+
+            return m_colors.value(colorId);
         }
 
-        QByteArray readConfig() override
+        Path getIconPath(const QString &iconId, const ColorMode colorMode) const override
         {
-            return readFile(m_qrcThemeDir / Path(CONFIG_FILE_NAME));
-        }
+            const Path iconsPath {u"icons"_qs};
+            const Path darkModeIconsPath = iconsPath / Path(u"dark"_qs);
 
-        Path iconPath(const QString &iconId) const override
-        {
-            return findIcon(iconId, m_qrcIconsDir);
+            if (colorMode == ColorMode::Dark)
+            {
+                if (const Path iconPath = findIcon(iconId, (m_userPath / darkModeIconsPath))
+                        ; !iconPath.isEmpty())
+                {
+                    return iconPath;
+                }
+
+                if (const Path iconPath = findIcon(iconId, (m_defaultPath / darkModeIconsPath))
+                        ; !iconPath.isEmpty())
+                {
+                    return iconPath;
+                }
+            }
+
+            if (const Path iconPath = findIcon(iconId, (m_userPath / iconsPath))
+                    ; !iconPath.isEmpty())
+            {
+                return iconPath;
+            }
+
+            return findIcon(iconId, (m_defaultPath / iconsPath));
         }
 
     private:
-        const Path m_qrcThemeDir {u":/uitheme"_qs};
-        const Path m_qrcIconsDir = m_qrcThemeDir / THEME_ICONS_DIR;
+        void loadColors()
+        {
+            m_colors = {
+                {u"Log.TimeStamp"_qs, Color::Primer::Light::fgSubtle},
+                {u"Log.Normal"_qs, QApplication::palette().color(QPalette::Active, QPalette::WindowText)},
+                {u"Log.Info"_qs, Color::Primer::Light::accentFg},
+                {u"Log.Warning"_qs, Color::Primer::Light::severeFg},
+                {u"Log.Critical"_qs, Color::Primer::Light::dangerFg},
+                {u"Log.BannedPeer"_qs, Color::Primer::Light::dangerFg},
+
+                {u"RSS.ReadArticle"_qs, QApplication::palette().color(QPalette::Inactive, QPalette::WindowText)},
+                {u"RSS.UnreadArticle"_qs, QApplication::palette().color(QPalette::Active, QPalette::Link)},
+
+                {u"TransferList.Downloading"_qs, Color::Primer::Light::successFg},
+                {u"TransferList.StalledDownloading"_qs, Color::Primer::Light::successEmphasis},
+                {u"TransferList.DownloadingMetadata"_qs, Color::Primer::Light::successFg},
+                {u"TransferList.ForcedDownloadingMetadata"_qs, Color::Primer::Light::successFg},
+                {u"TransferList.ForcedDownloading"_qs, Color::Primer::Light::successFg},
+                {u"TransferList.Uploading"_qs, Color::Primer::Light::accentFg},
+                {u"TransferList.StalledUploading"_qs, Color::Primer::Light::accentEmphasis},
+                {u"TransferList.ForcedUploading"_qs, Color::Primer::Light::accentFg},
+                {u"TransferList.QueuedDownloading"_qs, Color::Primer::Light::scaleYellow6},
+                {u"TransferList.QueuedUploading"_qs, Color::Primer::Light::scaleYellow6},
+                {u"TransferList.CheckingDownloading"_qs, Color::Primer::Light::successFg},
+                {u"TransferList.CheckingUploading"_qs, Color::Primer::Light::successFg},
+                {u"TransferList.CheckingResumeData"_qs, Color::Primer::Light::successFg},
+                {u"TransferList.PausedDownloading"_qs, Color::Primer::Light::fgMuted},
+                {u"TransferList.PausedUploading"_qs, Color::Primer::Light::doneFg},
+                {u"TransferList.Moving"_qs, Color::Primer::Light::successFg},
+                {u"TransferList.MissingFiles"_qs, Color::Primer::Light::dangerFg},
+                {u"TransferList.Error"_qs, Color::Primer::Light::dangerFg}
+            };
+
+            m_darkModeColors = {
+                {u"Log.TimeStamp"_qs, Color::Primer::Dark::fgSubtle},
+                {u"Log.Normal"_qs, QApplication::palette().color(QPalette::Active, QPalette::WindowText)},
+                {u"Log.Info"_qs, Color::Primer::Dark::accentFg},
+                {u"Log.Warning"_qs, Color::Primer::Dark::severeFg},
+                {u"Log.Critical"_qs, Color::Primer::Dark::dangerFg},
+                {u"Log.BannedPeer"_qs, Color::Primer::Dark::dangerFg},
+
+                {u"RSS.ReadArticle"_qs, QApplication::palette().color(QPalette::Inactive, QPalette::WindowText)},
+                {u"RSS.UnreadArticle"_qs, QApplication::palette().color(QPalette::Active, QPalette::Link)},
+
+                {u"TransferList.Downloading"_qs, Color::Primer::Dark::successFg},
+                {u"TransferList.StalledDownloading"_qs, Color::Primer::Dark::successEmphasis},
+                {u"TransferList.DownloadingMetadata"_qs, Color::Primer::Dark::successFg},
+                {u"TransferList.ForcedDownloadingMetadata"_qs, Color::Primer::Dark::successFg},
+                {u"TransferList.ForcedDownloading"_qs, Color::Primer::Dark::successFg},
+                {u"TransferList.Uploading"_qs, Color::Primer::Dark::accentFg},
+                {u"TransferList.StalledUploading"_qs, Color::Primer::Dark::accentEmphasis},
+                {u"TransferList.ForcedUploading"_qs, Color::Primer::Dark::accentFg},
+                {u"TransferList.QueuedDownloading"_qs, Color::Primer::Dark::scaleYellow6},
+                {u"TransferList.QueuedUploading"_qs, Color::Primer::Dark::scaleYellow6},
+                {u"TransferList.CheckingDownloading"_qs, Color::Primer::Dark::successFg},
+                {u"TransferList.CheckingUploading"_qs, Color::Primer::Dark::successFg},
+                {u"TransferList.CheckingResumeData"_qs, Color::Primer::Dark::successFg},
+                {u"TransferList.PausedDownloading"_qs, Color::Primer::Dark::fgMuted},
+                {u"TransferList.PausedUploading"_qs, Color::Primer::Dark::doneFg},
+                {u"TransferList.Moving"_qs, Color::Primer::Dark::successFg},
+                {u"TransferList.MissingFiles"_qs, Color::Primer::Dark::dangerFg},
+                {u"TransferList.Error"_qs, Color::Primer::Dark::dangerFg}
+            };
+
+            const QByteArray configData = readFile(m_userPath / Path(CONFIG_FILE_NAME));
+            if (configData.isEmpty())
+                return;
+
+            const QJsonObject config = parseThemeConfig(configData);
+
+            auto colorOverrides = colorsFromJSON(config.value(u"colors").toObject());
+            // Overriding Palette colors is not allowed in the default theme
+            Algorithm::removeIf(colorOverrides, [](const QString &colorId, [[maybe_unused]] const QColor &color)
+            {
+                return colorId.startsWith(u"Palette.");
+            });
+            m_colors.insert(colorOverrides);
+
+            auto darkModeColorOverrides = colorsFromJSON(config.value(u"colors.dark").toObject());
+            // Overriding Palette colors is not allowed in the default theme
+            Algorithm::removeIf(darkModeColorOverrides, [](const QString &colorId, [[maybe_unused]] const QColor &color)
+            {
+                return colorId.startsWith(u"Palette.");
+            });
+            m_darkModeColors.insert(darkModeColorOverrides);
+        }
+
+        const Path m_defaultPath {u":"_qs};
+        const Path m_userPath = specialFolderLocation(SpecialFolder::Config) / Path(u"themes/default"_qs);
+        QHash<QString, QColor> m_colors;
+        QHash<QString, QColor> m_darkModeColors;
     };
 
-    class FolderThemeSource final : public UIThemeSource
+    class CustomThemeSource : public UIThemeSource
+    {
+    public:
+        QColor getColor(const QString &colorId, const ColorMode colorMode) const override
+        {
+            if (colorMode == ColorMode::Dark)
+            {
+                if (const QColor color = m_darkModeColors.value(colorId)
+                        ; color.isValid())
+                {
+                    return color;
+                }
+            }
+
+            if (const QColor color = m_colors.value(colorId)
+                    ; color.isValid())
+            {
+                return color;
+            }
+
+            return defaultThemeSource()->getColor(colorId, colorMode);
+        }
+
+        Path getIconPath(const QString &iconId, const ColorMode colorMode) const override
+        {
+            const Path iconsPath {u"icons"_qs};
+            const Path darkModeIconsPath = iconsPath / Path(u"dark"_qs);
+
+            if (colorMode == ColorMode::Dark)
+            {
+                if (const Path iconPath = findIcon(iconId, (themeRootPath() / darkModeIconsPath))
+                        ; !iconPath.isEmpty())
+                {
+                    return iconPath;
+                }
+            }
+
+            if (const Path iconPath = findIcon(iconId, (themeRootPath() / iconsPath))
+                    ; !iconPath.isEmpty())
+            {
+                return iconPath;
+            }
+
+            return defaultThemeSource()->getIconPath(iconId, colorMode);
+        }
+
+        QByteArray readStyleSheet() override
+        {
+            return readFile(themeRootPath() / Path(STYLESHEET_FILE_NAME));
+        }
+
+    protected:
+        virtual Path themeRootPath() const = 0;
+
+        DefaultThemeSource *defaultThemeSource() const
+        {
+            return m_defaultThemeSource.get();
+        }
+
+    private:
+        void loadColors()
+        {
+            const QByteArray configData = readFile(themeRootPath() / Path(CONFIG_FILE_NAME));
+            if (configData.isEmpty())
+                return;
+
+            const QJsonObject config = parseThemeConfig(configData);
+
+            m_colors.insert(colorsFromJSON(config.value(u"colors").toObject()));
+            m_darkModeColors.insert(colorsFromJSON(config.value(u"colors.dark").toObject()));
+        }
+
+        const std::unique_ptr<DefaultThemeSource> m_defaultThemeSource = std::make_unique<DefaultThemeSource>();
+        QHash<QString, QColor> m_colors;
+        QHash<QString, QColor> m_darkModeColors;
+    };
+
+    class QRCThemeSource final : public CustomThemeSource
+    {
+    private:
+        Path themeRootPath() const override
+        {
+            return Path(u":/uitheme"_qs);
+        }
+    };
+
+    class FolderThemeSource : public CustomThemeSource
     {
     public:
         explicit FolderThemeSource(const Path &folderPath)
             : m_folder {folderPath}
-            , m_iconsDir {m_folder / THEME_ICONS_DIR}
         {
         }
 
         QByteArray readStyleSheet() override
         {
-            QByteArray styleSheetData = readFile(m_folder / Path(STYLESHEET_FILE_NAME));
-            return styleSheetData.replace(STYLESHEET_RESOURCES_DIR.toUtf8(), m_folder.data().toUtf8());
-        }
+            // Directory used by stylesheet to reference internal resources
+            // for example `icon: url(:/uitheme/file.svg)` will be expected to
+            // point to a file `file.svg` in root directory of CONFIG_FILE_NAME
+            const QString stylesheetResourcesDir = u":/uitheme"_qs;
 
-        QByteArray readConfig() override
-        {
-            return readFile(m_folder / Path(CONFIG_FILE_NAME));
-        }
-
-        Path iconPath(const QString &iconId) const override
-        {
-            return findIcon(iconId, m_iconsDir);
+            QByteArray styleSheetData = CustomThemeSource::readStyleSheet();
+            return styleSheetData.replace(stylesheetResourcesDir.toUtf8(), themeRootPath().data().toUtf8());
         }
 
     private:
-        const Path m_folder;
-        const Path m_iconsDir;
-    };
-
-
-    std::unique_ptr<UIThemeSource> createUIThemeSource(const Path &themePath)
-    {
-        if (themePath.filename() == CONFIG_FILE_NAME)
-            return std::make_unique<FolderThemeSource>(themePath);
-
-        if ((themePath.hasExtension(QLatin1String(".qbtheme")))
-                && QResource::registerResource(themePath.data(), QLatin1String("/uitheme")))
+        Path themeRootPath() const override
         {
-            return std::make_unique<QRCThemeSource>();
+            return m_folder;
         }
 
-        return nullptr;
-    }
+        const Path m_folder;
+    };
 }
 
 UIThemeManager *UIThemeManager::m_instance = nullptr;
@@ -167,25 +411,35 @@ void UIThemeManager::initInstance()
 }
 
 UIThemeManager::UIThemeManager()
-    : m_useCustomTheme(Preferences::instance()->useCustomUITheme())
+    : m_useCustomTheme {Preferences::instance()->useCustomUITheme()}
 #if (defined(Q_OS_UNIX) && !defined(Q_OS_MACOS))
-    , m_useSystemTheme(Preferences::instance()->useSystemIconTheme())
+    , m_useSystemIcons {Preferences::instance()->useSystemIcons()}
 #endif
 {
     if (m_useCustomTheme)
     {
         const Path themePath = Preferences::instance()->customUIThemePath();
-        m_themeSource = createUIThemeSource(themePath);
-        if (!m_themeSource)
+
+        if (themePath.hasExtension(u".qbtheme"_qs))
         {
-            LogMsg(tr("Failed to load UI theme from file: \"%1\"").arg(themePath.toString()), Log::WARNING);
+            if (QResource::registerResource(themePath.data(), u"/uitheme"_qs))
+                m_themeSource = std::make_unique<QRCThemeSource>();
+            else
+                LogMsg(tr("Failed to load UI theme from file: \"%1\"").arg(themePath.toString()), Log::WARNING);
         }
-        else
+        else if (themePath.filename() == CONFIG_FILE_NAME)
         {
-            loadColorsFromJSONConfig();
-            applyPalette();
-            applyStyleSheet();
+            m_themeSource = std::make_unique<FolderThemeSource>(themePath.parentPath());
         }
+    }
+
+    if (!m_themeSource)
+        m_themeSource = std::make_unique<DefaultThemeSource>();
+
+    if (m_useCustomTheme)
+    {
+        applyPalette();
+        applyStyleSheet();
     }
 }
 
@@ -196,49 +450,74 @@ UIThemeManager *UIThemeManager::instance()
 
 void UIThemeManager::applyStyleSheet() const
 {
-    qApp->setStyleSheet(m_themeSource->readStyleSheet());
+    qApp->setStyleSheet(QString::fromUtf8(m_themeSource->readStyleSheet()));
 }
 
-QIcon UIThemeManager::getIcon(const QString &iconId, const QString &fallback) const
+QIcon UIThemeManager::getIcon(const QString &iconId, [[maybe_unused]] const QString &fallback) const
 {
+    const auto colorMode = isDarkTheme() ? ColorMode::Dark : ColorMode::Light;
+    auto &icons = (colorMode == ColorMode::Dark) ? m_darkModeIcons : m_icons;
+
+    const auto iter = icons.find(iconId);
+    if (iter != icons.end())
+        return *iter;
+
 #if (defined(Q_OS_UNIX) && !defined(Q_OS_MACOS))
-    if (m_useSystemTheme)
+    // Don't cache system icons because users might change them at run time
+    if (m_useSystemIcons)
     {
-        QIcon icon = QIcon::fromTheme(iconId);
+        auto icon = QIcon::fromTheme(iconId);
         if (icon.name() != iconId)
-            icon = QIcon::fromTheme(fallback, QIcon(getIconPathFromResources(iconId, fallback).toString()));
+            icon = QIcon::fromTheme(fallback, QIcon(m_themeSource->getIconPath(iconId, colorMode).data()));
         return icon;
     }
 #endif
 
-    // Cache to avoid rescaling svg icons
-    // And don't cache system icons because users might change them at run time
-    const auto iter = m_iconCache.find(iconId);
-    if (iter != m_iconCache.end())
-        return *iter;
-
-    const QIcon icon {getIconPathFromResources(iconId, fallback).data()};
-    m_iconCache[iconId] = icon;
+    const QIcon icon {m_themeSource->getIconPath(iconId, colorMode).data()};
+    icons[iconId] = icon;
     return icon;
 }
 
 QIcon UIThemeManager::getFlagIcon(const QString &countryIsoCode) const
 {
-    if (countryIsoCode.isEmpty()) return {};
+    if (countryIsoCode.isEmpty())
+        return {};
 
     const QString key = countryIsoCode.toLower();
-    const auto iter = m_flagCache.find(key);
-    if (iter != m_flagCache.end())
+    const auto iter = m_flags.find(key);
+    if (iter != m_flags.end())
         return *iter;
 
-    const QIcon icon {QLatin1String(":/icons/flags/") + key + QLatin1String(".svg")};
-    m_flagCache[key] = icon;
+    const QIcon icon {u":/icons/flags/" + key + u".svg"};
+    m_flags[key] = icon;
     return icon;
 }
 
-QColor UIThemeManager::getColor(const QString &id, const QColor &defaultColor) const
+QPixmap UIThemeManager::getScaledPixmap(const QString &iconId, const int height) const
 {
-    return m_colors.value(id, defaultColor);
+    // (workaround) svg images require the use of `QIcon()` to load and scale losslessly,
+    // otherwise other image classes will convert it to pixmap first and follow-up scaling will become lossy.
+
+    Q_ASSERT(height > 0);
+
+    const QString cacheKey = iconId + u'@' + QString::number(height);
+
+    QPixmap pixmap;
+    if (!QPixmapCache::find(cacheKey, &pixmap))
+    {
+        pixmap = getIcon(iconId).pixmap(height);
+        QPixmapCache::insert(cacheKey, pixmap);
+    }
+
+    return pixmap;
+}
+
+QColor UIThemeManager::getColor(const QString &id) const
+{
+    const QColor color = m_themeSource->getColor(id, (isDarkTheme() ? ColorMode::Dark : ColorMode::Light));
+    Q_ASSERT(color.isValid());
+
+    return color;
 }
 
 #ifndef Q_OS_MACOS
@@ -249,99 +528,27 @@ QIcon UIThemeManager::getSystrayIcon() const
     {
 #if defined(Q_OS_UNIX)
     case TrayIcon::Style::Normal:
-        return QIcon::fromTheme(QLatin1String("qbittorrent-tray"));
+        return QIcon::fromTheme(u"qbittorrent-tray"_qs);
     case TrayIcon::Style::MonoDark:
-        return QIcon::fromTheme(QLatin1String("qbittorrent-tray-dark"));
+        return QIcon::fromTheme(u"qbittorrent-tray-dark"_qs);
     case TrayIcon::Style::MonoLight:
-        return QIcon::fromTheme(QLatin1String("qbittorrent-tray-light"));
+        return QIcon::fromTheme(u"qbittorrent-tray-light"_qs);
 #else
     case TrayIcon::Style::Normal:
-        return getIcon(QLatin1String("qbittorrent-tray"));
+        return getIcon(u"qbittorrent-tray"_qs);
     case TrayIcon::Style::MonoDark:
-        return getIcon(QLatin1String("qbittorrent-tray-dark"));
+        return getIcon(u"qbittorrent-tray-dark"_qs);
     case TrayIcon::Style::MonoLight:
-        return getIcon(QLatin1String("qbittorrent-tray-light"));
+        return getIcon(u"qbittorrent-tray-light"_qs);
 #endif
     default:
         break;
     }
 
     // As a failsafe in case the enum is invalid
-    return getIcon(QLatin1String("qbittorrent-tray"));
+    return getIcon(u"qbittorrent-tray"_qs);
 }
 #endif
-
-Path UIThemeManager::getIconPath(const QString &iconId) const
-{
-#if (defined(Q_OS_UNIX) && !defined(Q_OS_MACOS))
-    if (m_useSystemTheme)
-    {
-        Path path = Utils::Fs::tempPath() / Path(iconId + QLatin1String(".png"));
-        if (!path.exists())
-        {
-            const QIcon icon = QIcon::fromTheme(iconId);
-            if (!icon.isNull())
-                icon.pixmap(32).save(path.toString());
-            else
-                path = getIconPathFromResources(iconId);
-        }
-
-        return path;
-    }
-#endif
-    return getIconPathFromResources(iconId, {});
-}
-
-Path UIThemeManager::getIconPathFromResources(const QString &iconId, const QString &fallback) const
-{
-    if (m_useCustomTheme && m_themeSource)
-    {
-        const Path customIcon = m_themeSource->iconPath(iconId);
-        if (!customIcon.isEmpty())
-            return customIcon;
-
-        if (!fallback.isEmpty())
-        {
-            const Path fallbackIcon = m_themeSource->iconPath(fallback);
-            if (!fallbackIcon.isEmpty())
-                return fallbackIcon;
-        }
-    }
-
-    return findIcon(iconId, DEFAULT_ICONS_DIR);
-}
-
-void UIThemeManager::loadColorsFromJSONConfig()
-{
-    const QByteArray config = m_themeSource->readConfig();
-    if (config.isEmpty())
-        return;
-
-    QJsonParseError jsonError;
-    const QJsonDocument configJsonDoc = QJsonDocument::fromJson(config, &jsonError);
-    if (jsonError.error != QJsonParseError::NoError)
-    {
-        LogMsg(tr("\"%1\" has invalid format. Reason: %2").arg(CONFIG_FILE_NAME, jsonError.errorString()), Log::WARNING);
-        return;
-    }
-    if (!configJsonDoc.isObject())
-    {
-        LogMsg(tr("\"%1\" has invalid format. Reason: %2").arg(CONFIG_FILE_NAME, tr("Root JSON value is not an object")), Log::WARNING);
-        return;
-    }
-
-    const QJsonObject colors = configJsonDoc.object().value("colors").toObject();
-    for (auto color = colors.constBegin(); color != colors.constEnd(); ++color)
-    {
-        const QColor providedColor(color.value().toString());
-        if (!providedColor.isValid())
-        {
-            LogMsg(tr("Invalid color for ID \"%1\" is provided by theme").arg(color.key()), Log::WARNING);
-            continue;
-        }
-        m_colors.insert(color.key(), providedColor);
-    }
-}
 
 void UIThemeManager::applyPalette() const
 {
@@ -354,39 +561,41 @@ void UIThemeManager::applyPalette() const
 
     const ColorDescriptor paletteColorDescriptors[] =
     {
-        {QLatin1String("Palette.Window"), QPalette::Window, QPalette::Normal},
-        {QLatin1String("Palette.WindowText"), QPalette::WindowText, QPalette::Normal},
-        {QLatin1String("Palette.Base"), QPalette::Base, QPalette::Normal},
-        {QLatin1String("Palette.AlternateBase"), QPalette::AlternateBase, QPalette::Normal},
-        {QLatin1String("Palette.Text"), QPalette::Text, QPalette::Normal},
-        {QLatin1String("Palette.ToolTipBase"), QPalette::ToolTipBase, QPalette::Normal},
-        {QLatin1String("Palette.ToolTipText"), QPalette::ToolTipText, QPalette::Normal},
-        {QLatin1String("Palette.BrightText"), QPalette::BrightText, QPalette::Normal},
-        {QLatin1String("Palette.Highlight"), QPalette::Highlight, QPalette::Normal},
-        {QLatin1String("Palette.HighlightedText"), QPalette::HighlightedText, QPalette::Normal},
-        {QLatin1String("Palette.Button"), QPalette::Button, QPalette::Normal},
-        {QLatin1String("Palette.ButtonText"), QPalette::ButtonText, QPalette::Normal},
-        {QLatin1String("Palette.Link"), QPalette::Link, QPalette::Normal},
-        {QLatin1String("Palette.LinkVisited"), QPalette::LinkVisited, QPalette::Normal},
-        {QLatin1String("Palette.Light"), QPalette::Light, QPalette::Normal},
-        {QLatin1String("Palette.Midlight"), QPalette::Midlight, QPalette::Normal},
-        {QLatin1String("Palette.Mid"), QPalette::Mid, QPalette::Normal},
-        {QLatin1String("Palette.Dark"), QPalette::Dark, QPalette::Normal},
-        {QLatin1String("Palette.Shadow"), QPalette::Shadow, QPalette::Normal},
-        {QLatin1String("Palette.WindowTextDisabled"), QPalette::WindowText, QPalette::Disabled},
-        {QLatin1String("Palette.TextDisabled"), QPalette::Text, QPalette::Disabled},
-        {QLatin1String("Palette.ToolTipTextDisabled"), QPalette::ToolTipText, QPalette::Disabled},
-        {QLatin1String("Palette.BrightTextDisabled"), QPalette::BrightText, QPalette::Disabled},
-        {QLatin1String("Palette.HighlightedTextDisabled"), QPalette::HighlightedText, QPalette::Disabled},
-        {QLatin1String("Palette.ButtonTextDisabled"), QPalette::ButtonText, QPalette::Disabled}
+        {u"Palette.Window"_qs, QPalette::Window, QPalette::Normal},
+        {u"Palette.WindowText"_qs, QPalette::WindowText, QPalette::Normal},
+        {u"Palette.Base"_qs, QPalette::Base, QPalette::Normal},
+        {u"Palette.AlternateBase"_qs, QPalette::AlternateBase, QPalette::Normal},
+        {u"Palette.Text"_qs, QPalette::Text, QPalette::Normal},
+        {u"Palette.ToolTipBase"_qs, QPalette::ToolTipBase, QPalette::Normal},
+        {u"Palette.ToolTipText"_qs, QPalette::ToolTipText, QPalette::Normal},
+        {u"Palette.BrightText"_qs, QPalette::BrightText, QPalette::Normal},
+        {u"Palette.Highlight"_qs, QPalette::Highlight, QPalette::Normal},
+        {u"Palette.HighlightedText"_qs, QPalette::HighlightedText, QPalette::Normal},
+        {u"Palette.Button"_qs, QPalette::Button, QPalette::Normal},
+        {u"Palette.ButtonText"_qs, QPalette::ButtonText, QPalette::Normal},
+        {u"Palette.Link"_qs, QPalette::Link, QPalette::Normal},
+        {u"Palette.LinkVisited"_qs, QPalette::LinkVisited, QPalette::Normal},
+        {u"Palette.Light"_qs, QPalette::Light, QPalette::Normal},
+        {u"Palette.Midlight"_qs, QPalette::Midlight, QPalette::Normal},
+        {u"Palette.Mid"_qs, QPalette::Mid, QPalette::Normal},
+        {u"Palette.Dark"_qs, QPalette::Dark, QPalette::Normal},
+        {u"Palette.Shadow"_qs, QPalette::Shadow, QPalette::Normal},
+        {u"Palette.WindowTextDisabled"_qs, QPalette::WindowText, QPalette::Disabled},
+        {u"Palette.TextDisabled"_qs, QPalette::Text, QPalette::Disabled},
+        {u"Palette.ToolTipTextDisabled"_qs, QPalette::ToolTipText, QPalette::Disabled},
+        {u"Palette.BrightTextDisabled"_qs, QPalette::BrightText, QPalette::Disabled},
+        {u"Palette.HighlightedTextDisabled"_qs, QPalette::HighlightedText, QPalette::Disabled},
+        {u"Palette.ButtonTextDisabled"_qs, QPalette::ButtonText, QPalette::Disabled}
     };
 
     QPalette palette = qApp->palette();
     for (const ColorDescriptor &colorDescriptor : paletteColorDescriptors)
     {
-        const QColor defaultColor = palette.color(colorDescriptor.colorGroup, colorDescriptor.colorRole);
-        const QColor newColor = getColor(colorDescriptor.id, defaultColor);
-        palette.setColor(colorDescriptor.colorGroup, colorDescriptor.colorRole, newColor);
+        // For backward compatibility, the palette color overrides are read from the section of the "light mode" colors
+        const QColor newColor = m_themeSource->getColor(colorDescriptor.id, ColorMode::Light);
+        if (newColor.isValid())
+            palette.setColor(colorDescriptor.colorGroup, colorDescriptor.colorRole, newColor);
     }
+
     qApp->setPalette(palette);
 }

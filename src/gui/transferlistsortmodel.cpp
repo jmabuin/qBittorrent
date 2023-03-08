@@ -93,8 +93,8 @@ namespace
 
 TransferListSortModel::TransferListSortModel(QObject *parent)
     : QSortFilterProxyModel {parent}
-    , m_subSortColumn {"TransferList/SubSortColumn", TransferListModel::TR_NAME, adjustSubSortColumn}
-    , m_subSortOrder {"TransferList/SubSortOrder", 0}
+    , m_subSortColumn {u"TransferList/SubSortColumn"_qs, TransferListModel::TR_NAME, adjustSubSortColumn}
+    , m_subSortOrder {u"TransferList/SubSortOrder"_qs, 0}
 {
     setSortRole(TransferListModel::UnderlyingDataRole);
 }
@@ -163,10 +163,17 @@ int TransferListSortModel::compare(const QModelIndex &left, const QModelIndex &r
     switch (compareColumn)
     {
     case TransferListModel::TR_CATEGORY:
+    case TransferListModel::TR_DOWNLOAD_PATH:
     case TransferListModel::TR_NAME:
     case TransferListModel::TR_SAVE_PATH:
     case TransferListModel::TR_TRACKER:
         return m_naturalCompare(leftValue.toString(), rightValue.toString());
+
+    case TransferListModel::TR_INFOHASH_V1:
+        return threeWayCompare(leftValue.value<SHA1Hash>(), rightValue.value<SHA1Hash>());
+
+    case TransferListModel::TR_INFOHASH_V2:
+        return threeWayCompare(leftValue.value<SHA256Hash>(), rightValue.value<SHA256Hash>());
 
     case TransferListModel::TR_TAGS:
         return customCompare(leftValue.value<TagSet>(), rightValue.value<TagSet>(), m_naturalCompare);

@@ -31,6 +31,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <filesystem>
 
 #if defined(Q_OS_WIN)
 #include <memory>
@@ -57,8 +58,8 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
-#include <QStorageInfo>
 #include <QRegularExpression>
+#include <QStorageInfo>
 
 #include "base/global.h"
 #include "base/path.h"
@@ -80,22 +81,22 @@ bool Utils::Fs::smartRemoveEmptyFolderTree(const Path &path)
     const QStringList deleteFilesList =
     {
         // Windows
-        QLatin1String("Thumbs.db"),
-        QLatin1String("desktop.ini"),
+        u"Thumbs.db"_qs,
+        u"desktop.ini"_qs,
         // Linux
-        QLatin1String(".directory"),
+        u".directory"_qs,
         // Mac OS
-        QLatin1String(".DS_Store")
+        u".DS_Store"_qs
     };
 
     // travel from the deepest folder and remove anything unwanted on the way out.
-    QStringList dirList(path.data() + '/');  // get all sub directories paths
+    QStringList dirList(path.data() + u'/');  // get all sub directories paths
     QDirIterator iter {path.data(), (QDir::AllDirs | QDir::NoDotAndDotDot), QDirIterator::Subdirectories};
     while (iter.hasNext())
-        dirList << iter.next() + '/';
+        dirList << iter.next() + u'/';
     // sort descending by directory depth
     std::sort(dirList.begin(), dirList.end()
-              , [](const QString &l, const QString &r) { return l.count('/') > r.count('/'); });
+              , [](const QString &l, const QString &r) { return l.count(u'/') > r.count(u'/'); });
 
     for (const QString &p : asConst(dirList))
     {
@@ -111,7 +112,7 @@ bool Utils::Fs::smartRemoveEmptyFolderTree(const Path &path)
         // temp files on linux usually end with '~', e.g. `filename~`
         const bool hasOtherFiles = std::any_of(tmpFileList.cbegin(), tmpFileList.cend(), [&deleteFilesList](const QString &f)
         {
-            return (!f.endsWith('~') && !deleteFilesList.contains(f, Qt::CaseInsensitive));
+            return (!f.endsWith(u'~') && !deleteFilesList.contains(f, Qt::CaseInsensitive));
         });
         if (hasOtherFiles)
             continue;
@@ -161,15 +162,23 @@ qint64 Utils::Fs::computePathSize(const Path &path)
 
 /**
  * Makes deep comparison of two files to make sure they are identical.
+ * The point is about the file contents. If the files do not exist then
+ * the paths refers to nothing and therefore we cannot say the files are same
+ * (because there are no files!)
  */
 bool Utils::Fs::sameFiles(const Path &path1, const Path &path2)
 {
     QFile f1 {path1.data()};
     QFile f2 {path2.data()};
-    if (!f1.exists() || !f2.exists()) return false;
-    if (f1.size() != f2.size()) return false;
-    if (!f1.open(QIODevice::ReadOnly)) return false;
-    if (!f2.open(QIODevice::ReadOnly)) return false;
+
+    if (!f1.exists() || !f2.exists())
+        return false;
+    if (path1 == path2)
+        return true;
+    if (f1.size() != f2.size())
+        return false;
+    if (!f1.open(QIODevice::ReadOnly) || !f2.open(QIODevice::ReadOnly))
+        return false;
 
     const int readSize = 1024 * 1024;  // 1 MiB
     while (!f1.atEnd() && !f2.atEnd())
@@ -182,7 +191,7 @@ bool Utils::Fs::sameFiles(const Path &path1, const Path &path2)
 
 QString Utils::Fs::toValidFileName(const QString &name, const QString &pad)
 {
-    const QRegularExpression regex {QLatin1String("[\\\\/:?\"*<>|]+")};
+    const QRegularExpression regex {u"[\\\\/:?\"*<>|]+"_qs};
 
     QString validName = name.trimmed();
     validName.replace(regex, pad);
@@ -192,7 +201,7 @@ QString Utils::Fs::toValidFileName(const QString &name, const QString &pad)
 
 Path Utils::Fs::toValidPath(const QString &name, const QString &pad)
 {
-    const QRegularExpression regex {QLatin1String("[:?\"*<>|]+")};
+    const QRegularExpression regex {u"[:?\"*<>|]+"_qs};
 
     QString validPathStr = name;
     validPathStr.replace(regex, pad);
@@ -214,17 +223,8 @@ Path Utils::Fs::tempPath()
 
 bool Utils::Fs::isRegularFile(const Path &path)
 {
-    struct ::stat st;
-    if (::stat(path.toString().toUtf8().constData(), &st) != 0)
-    {
-        //  analyse erno and log the error
-        const auto err = errno;
-        qDebug("Could not get file stats for path '%s'. Error: %s"
-               , qUtf8Printable(path.toString()), qUtf8Printable(strerror(err)));
-        return false;
-    }
-
-    return (st.st_mode & S_IFMT) == S_IFREG;
+    std::error_code ec;
+    return std::filesystem::is_regular_file(path.toStdFsPath(), ec);
 }
 
 bool Utils::Fs::isNetworkFileSystem(const Path &path)
@@ -238,7 +238,7 @@ bool Utils::Fs::isNetworkFileSystem(const Path &path)
         return false;
     return (::GetDriveTypeW(volumePath.get()) == DRIVE_REMOTE);
 #else
-    const QString file = path.toString() + QLatin1String("/.");
+    const QString file = (path.toString() + u"/.");
     struct statfs buf {};
     if (statfs(file.toLocal8Bit().constData(), &buf) != 0)
         return false;

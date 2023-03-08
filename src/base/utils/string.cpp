@@ -32,6 +32,7 @@
 #include <cmath>
 
 #include <QLocale>
+#include <QStringList>
 #include <QVector>
 
 #if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
@@ -69,11 +70,47 @@ QString Utils::String::wildcardToRegexPattern(const QString &pattern)
 }
 #endif
 
+QStringList Utils::String::splitCommand(const QString &command)
+{
+    QStringList ret;
+    ret.reserve(32);
+
+    bool inQuotes = false;
+    QString tmp;
+    for (const QChar c : command)
+    {
+        if (c == u' ')
+        {
+            if (!inQuotes)
+            {
+                if (!tmp.isEmpty())
+                {
+                    ret.append(tmp);
+                    tmp.clear();
+                }
+
+                continue;
+            }
+        }
+        else if (c == u'"')
+        {
+            inQuotes = !inQuotes;
+        }
+
+        tmp.append(c);
+    }
+
+    if (!tmp.isEmpty())
+        ret.append(tmp);
+
+    return ret;
+}
+
 std::optional<bool> Utils::String::parseBool(const QString &string)
 {
-    if (string.compare("true", Qt::CaseInsensitive) == 0)
+    if (string.compare(u"true", Qt::CaseInsensitive) == 0)
         return true;
-    if (string.compare("false", Qt::CaseInsensitive) == 0)
+    if (string.compare(u"false", Qt::CaseInsensitive) == 0)
         return false;
 
     return std::nullopt;

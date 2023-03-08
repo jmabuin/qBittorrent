@@ -34,9 +34,12 @@
 
 #include "base/3rdparty/expected.hpp"
 #include "base/utils/fs.h"
-#include "base/utils/gzip.h"
 #include "base/utils/io.h"
 #include "base/utils/misc.h"
+
+#ifdef QT_NO_COMPRESS
+#include "base/utils/gzip.h"
+#endif
 
 const int MAX_REDIRECTIONS = 20;  // the common value for web browsers
 
@@ -53,16 +56,18 @@ namespace
     }
 }
 
-DownloadHandlerImpl::DownloadHandlerImpl(Net::DownloadManager *manager, const Net::DownloadRequest &downloadRequest)
+Net::DownloadHandlerImpl::DownloadHandlerImpl(DownloadManager *manager
+        , const DownloadRequest &downloadRequest, const bool useProxy)
     : DownloadHandler {manager}
     , m_manager {manager}
     , m_downloadRequest {downloadRequest}
+    , m_useProxy {useProxy}
 {
     m_result.url = url();
-    m_result.status = Net::DownloadStatus::Success;
+    m_result.status = DownloadStatus::Success;
 }
 
-void DownloadHandlerImpl::cancel()
+void Net::DownloadHandlerImpl::cancel()
 {
     if (m_reply)
     {
@@ -75,7 +80,7 @@ void DownloadHandlerImpl::cancel()
     }
 }
 
-void DownloadHandlerImpl::assignNetworkReply(QNetworkReply *reply)
+void Net::DownloadHandlerImpl::assignNetworkReply(QNetworkReply *reply)
 {
     Q_ASSERT(reply);
     Q_ASSERT(!m_reply);
@@ -88,17 +93,22 @@ void DownloadHandlerImpl::assignNetworkReply(QNetworkReply *reply)
 }
 
 // Returns original url
-QString DownloadHandlerImpl::url() const
+QString Net::DownloadHandlerImpl::url() const
 {
     return m_downloadRequest.url();
 }
 
-const Net::DownloadRequest DownloadHandlerImpl::downloadRequest() const
+Net::DownloadRequest Net::DownloadHandlerImpl::downloadRequest() const
 {
     return m_downloadRequest;
 }
 
-void DownloadHandlerImpl::processFinishedDownload()
+bool Net::DownloadHandlerImpl::useProxy() const
+{
+    return m_useProxy;
+}
+
+void Net::DownloadHandlerImpl::processFinishedDownload()
 {
     qDebug("Download finished: %s", qUtf8Printable(url()));
 
@@ -121,9 +131,13 @@ void DownloadHandlerImpl::processFinishedDownload()
     }
 
     // Success
+#ifdef QT_NO_COMPRESS
     m_result.data = (m_reply->rawHeader("Content-Encoding") == "gzip")
                     ? Utils::Gzip::decompress(m_reply->readAll())
                     : m_reply->readAll();
+#else
+    m_result.data = m_reply->readAll();
+#endif
 
     if (m_downloadRequest.saveToFile())
     {
@@ -149,7 +163,7 @@ void DownloadHandlerImpl::processFinishedDownload()
     finish();
 }
 
-void DownloadHandlerImpl::checkDownloadSize(const qint64 bytesReceived, const qint64 bytesTotal)
+void Net::DownloadHandlerImpl::checkDownloadSize(const qint64 bytesReceived, const qint64 bytesTotal)
 {
     if ((bytesTotal > 0) && (bytesTotal <= m_downloadRequest.limit()))
     {
@@ -168,7 +182,7 @@ void DownloadHandlerImpl::checkDownloadSize(const qint64 bytesReceived, const qi
     }
 }
 
-void DownloadHandlerImpl::handleRedirection(const QUrl &newUrl)
+void Net::DownloadHandlerImpl::handleRedirection(const QUrl &newUrl)
 {
     if (m_redirectionCount >= MAX_REDIRECTIONS)
     {
@@ -183,7 +197,7 @@ void DownloadHandlerImpl::handleRedirection(const QUrl &newUrl)
     qDebug("Redirecting from %s to %s...", qUtf8Printable(m_reply->url().toString()), qUtf8Printable(newUrlString));
 
     // Redirect to magnet workaround
-    if (newUrlString.startsWith("magnet:", Qt::CaseInsensitive))
+    if (newUrlString.startsWith(u"magnet:", Qt::CaseInsensitive))
     {
         qDebug("Magnet redirect detected.");
         m_result.status = Net::DownloadStatus::RedirectedToMagnet;
@@ -195,9 +209,9 @@ void DownloadHandlerImpl::handleRedirection(const QUrl &newUrl)
     }
 
     auto redirected = static_cast<DownloadHandlerImpl *>(
-                m_manager->download(Net::DownloadRequest(m_downloadRequest).url(newUrlString)));
+            m_manager->download(DownloadRequest(m_downloadRequest).url(newUrlString), useProxy()));
     redirected->m_redirectionCount = m_redirectionCount + 1;
-    connect(redirected, &DownloadHandlerImpl::finished, this, [this](const Net::DownloadResult &result)
+    connect(redirected, &DownloadHandlerImpl::finished, this, [this](const DownloadResult &result)
     {
         m_result = result;
         m_result.url = url();
@@ -205,18 +219,18 @@ void DownloadHandlerImpl::handleRedirection(const QUrl &newUrl)
     });
 }
 
-void DownloadHandlerImpl::setError(const QString &error)
+void Net::DownloadHandlerImpl::setError(const QString &error)
 {
     m_result.errorString = error;
-    m_result.status = Net::DownloadStatus::Failed;
+    m_result.status = DownloadStatus::Failed;
 }
 
-void DownloadHandlerImpl::finish()
+void Net::DownloadHandlerImpl::finish()
 {
     emit finished(m_result);
 }
 
-QString DownloadHandlerImpl::errorCodeToString(const QNetworkReply::NetworkError status)
+QString Net::DownloadHandlerImpl::errorCodeToString(const QNetworkReply::NetworkError status)
 {
     switch (status)
     {

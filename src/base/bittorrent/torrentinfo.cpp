@@ -30,6 +30,7 @@
 
 #include <libtorrent/create_torrent.hpp>
 #include <libtorrent/error_code.hpp>
+#include <libtorrent/version.hpp>
 
 #include <QByteArray>
 #include <QDateTime>
@@ -38,9 +39,9 @@
 #include <QString>
 #include <QStringList>
 #include <QUrl>
-#include <QVector>
 
 #include "base/global.h"
+#include "base/path.h"
 #include "base/utils/fs.h"
 #include "base/utils/io.h"
 #include "base/utils/misc.h"
@@ -122,7 +123,7 @@ nonstd::expected<TorrentInfo, QString> TorrentInfo::loadFromFile(const Path &pat
     }
     catch (const std::bad_alloc &e)
     {
-        return nonstd::make_unexpected(tr("Torrent file read error: %1").arg(e.what()));
+        return nonstd::make_unexpected(tr("Torrent file read error: %1").arg(QString::fromLocal8Bit(e.what())));
     }
 
     if (data.size() != file.size())
@@ -240,6 +241,11 @@ Path TorrentInfo::filePath(const int index) const
 {
     if (!isValid()) return {};
 
+    Q_ASSERT(index >= 0);
+    Q_ASSERT(index < m_nativeIndexes.size());
+    if ((index < 0) || (index >= m_nativeIndexes.size()))
+        return {};
+
     return Path(m_nativeInfo->orig_files().file_path(m_nativeIndexes[index]));
 }
 
@@ -257,12 +263,22 @@ qlonglong TorrentInfo::fileSize(const int index) const
 {
     if (!isValid()) return -1;
 
+    Q_ASSERT(index >= 0);
+    Q_ASSERT(index < m_nativeIndexes.size());
+    if ((index < 0) || (index >= m_nativeIndexes.size()))
+        return -1;
+
     return m_nativeInfo->orig_files().file_size(m_nativeIndexes[index]);
 }
 
 qlonglong TorrentInfo::fileOffset(const int index) const
 {
     if (!isValid()) return -1;
+
+    Q_ASSERT(index >= 0);
+    Q_ASSERT(index < m_nativeIndexes.size());
+    if ((index < 0) || (index >= m_nativeIndexes.size()))
+        return -1;
 
     return m_nativeInfo->orig_files().file_offset(m_nativeIndexes[index]);
 }
@@ -275,9 +291,8 @@ QVector<TrackerEntry> TorrentInfo::trackers() const
 
     QVector<TrackerEntry> ret;
     ret.reserve(static_cast<decltype(ret)::size_type>(trackers.size()));
-
     for (const lt::announce_entry &tracker : trackers)
-        ret.append({QString::fromStdString(tracker.url)});
+        ret.append({QString::fromStdString(tracker.url), tracker.tier});
 
     return ret;
 }
@@ -293,8 +308,12 @@ QVector<QUrl> TorrentInfo::urlSeeds() const
 
     for (const lt::web_seed_entry &webSeed : nativeWebSeeds)
     {
+#if LIBTORRENT_VERSION_NUM < 20100
         if (webSeed.type == lt::web_seed_entry::url_seed)
-            urlSeeds.append(QUrl(webSeed.url.c_str()));
+            urlSeeds.append(QUrl(QString::fromStdString(webSeed.url)));
+#else
+        urlSeeds.append(QUrl(QString::fromStdString(webSeed.url)));
+#endif
     }
 
     return urlSeeds;
@@ -406,14 +425,6 @@ int TorrentInfo::fileIndex(const Path &filePath) const
     }
 
     return -1;
-}
-
-TorrentContentLayout TorrentInfo::contentLayout() const
-{
-    if (!isValid())
-        return TorrentContentLayout::Original;
-
-    return detectContentLayout(filePaths());
 }
 
 std::shared_ptr<lt::torrent_info> TorrentInfo::nativeInfo() const

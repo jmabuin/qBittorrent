@@ -1,6 +1,6 @@
 /*
  * Bittorrent Client using Qt and libtorrent.
- * Copyright (C) 2015  Vladimir Golovnev <glassez@yandex.ru>
+ * Copyright (C) 2015-2022  Vladimir Golovnev <glassez@yandex.ru>
  * Copyright (C) 2006  Christophe Dumez <chris@qbittorrent.org>
  *
  * This program is free software; you can redistribute it and/or
@@ -29,15 +29,18 @@
 
 #pragma once
 
+#include <QtGlobal>
 #include <QtContainerFwd>
 #include <QMetaType>
 #include <QString>
 
+#include "base/3rdparty/expected.hpp"
 #include "base/pathfwd.h"
 #include "base/tagset.h"
-#include "abstractfilestorage.h"
+#include "torrentcontenthandler.h"
 
 class QBitArray;
+class QByteArray;
 class QDateTime;
 class QUrl;
 
@@ -97,11 +100,26 @@ namespace BitTorrent
         Error
     };
 
-    uint qHash(TorrentState key, uint seed);
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    std::size_t qHash(TorrentState key, std::size_t seed = 0);
+#else
+    uint qHash(TorrentState key, uint seed = 0);
+#endif
 
-    class Torrent : public AbstractFileStorage
+    class Torrent : public TorrentContentHandler
     {
+        Q_OBJECT
+        Q_DISABLE_COPY_MOVE(Torrent)
+
     public:
+        enum class StopCondition
+        {
+            None = 0,
+            MetadataReceived = 1,
+            FilesChecked = 2
+        };
+        Q_ENUM(StopCondition)
+
         static const qreal USE_GLOBAL_RATIO;
         static const qreal NO_RATIO_LIMIT;
 
@@ -111,7 +129,7 @@ namespace BitTorrent
         static const qreal MAX_RATIO;
         static const int MAX_SEEDING_TIME;
 
-        virtual ~Torrent() = default;
+        using TorrentContentHandler::TorrentContentHandler;
 
         virtual InfoHash infoHash() const = 0;
         virtual QString name() const = 0;
@@ -199,12 +217,13 @@ namespace BitTorrent
         virtual QVector<DownloadPriority> filePriorities() const = 0;
 
         virtual TorrentInfo info() const = 0;
-        virtual bool isSeed() const = 0;
+        virtual bool isFinished() const = 0;
         virtual bool isPaused() const = 0;
         virtual bool isQueued() const = 0;
         virtual bool isForced() const = 0;
         virtual bool isChecking() const = 0;
         virtual bool isDownloading() const = 0;
+        virtual bool isMoving() const = 0;
         virtual bool isUploading() const = 0;
         virtual bool isCompleted() const = 0;
         virtual bool isActive() const = 0;
@@ -232,8 +251,6 @@ namespace BitTorrent
         virtual int totalSeedsCount() const = 0;
         virtual int totalPeersCount() const = 0;
         virtual int totalLeechersCount() const = 0;
-        virtual int completeCount() const = 0;
-        virtual int incompleteCount() const = 0;
         virtual QDateTime lastSeenComplete() const = 0;
         virtual QDateTime completedTime() const = 0;
         virtual qlonglong timeSinceUpload() const = 0;
@@ -276,7 +293,6 @@ namespace BitTorrent
         virtual void forceReannounce(int index = -1) = 0;
         virtual void forceDHTAnnounce() = 0;
         virtual void forceRecheck() = 0;
-        virtual void prioritizeFiles(const QVector<DownloadPriority> &priorities) = 0;
         virtual void setRatioLimit(qreal limit) = 0;
         virtual void setSeedingTimeLimit(int limit) = 0;
         virtual void setUploadLimit(int limit) = 0;
@@ -286,14 +302,26 @@ namespace BitTorrent
         virtual void setPEXDisabled(bool disable) = 0;
         virtual void setLSDDisabled(bool disable) = 0;
         virtual void flushCache() const = 0;
-        virtual void addTrackers(const QVector<TrackerEntry> &trackers) = 0;
-        virtual void replaceTrackers(const QVector<TrackerEntry> &trackers) = 0;
+        virtual void addTrackers(QVector<TrackerEntry> trackers) = 0;
+        virtual void removeTrackers(const QStringList &trackers) = 0;
+        virtual void replaceTrackers(QVector<TrackerEntry> trackers) = 0;
         virtual void addUrlSeeds(const QVector<QUrl> &urlSeeds) = 0;
         virtual void removeUrlSeeds(const QVector<QUrl> &urlSeeds) = 0;
         virtual bool connectPeer(const PeerAddress &peerAddress) = 0;
         virtual void clearPeers() = 0;
+        virtual void setMetadata(const TorrentInfo &torrentInfo) = 0;
+
+        virtual StopCondition stopCondition() const = 0;
+        virtual void setStopCondition(StopCondition stopCondition) = 0;
 
         virtual QString createMagnetURI() const = 0;
+        virtual nonstd::expected<QByteArray, QString> exportToBuffer() const = 0;
+        virtual nonstd::expected<void, QString> exportToFile(const Path &path) const = 0;
+
+        virtual void fetchPeerInfo(std::function<void (QVector<PeerInfo>)> resultHandler) const = 0;
+        virtual void fetchURLSeeds(std::function<void (QVector<QUrl>)> resultHandler) const = 0;
+        virtual void fetchPieceAvailability(std::function<void (QVector<int>)> resultHandler) const = 0;
+        virtual void fetchDownloadingPieces(std::function<void (QBitArray)> resultHandler) const = 0;
 
         TorrentID id() const;
         bool isResumed() const;

@@ -1,5 +1,13 @@
+if (QT6)
+    find_package(Qt6 ${minQt6Version} REQUIRED COMPONENTS Widgets Svg)
+else()
+    find_package(Qt5 ${minQt5Version} REQUIRED COMPONENTS Widgets Svg)
+    if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        find_package(Qt5 ${minQt5Version} REQUIRED COMPONENTS WinExtras)
+    endif()
+endif()
 
-# CMAKE_AUTO_UI causes unncessary rebuilds
+# CMAKE_AUTO_UI causes unnecessary rebuilds
 qt_wrap_ui(UI_HEADERS
     aboutdialog.ui
     addnewtorrentdialog.ui
@@ -42,14 +50,18 @@ add_library(qbt_gui STATIC
     categoryfiltermodel.h
     categoryfilterproxymodel.h
     categoryfilterwidget.h
+    color.h
     cookiesdialog.h
     cookiesmodel.h
     deletionconfirmationdialog.h
+    desktopintegration.h
     downloadfromurldialog.h
     executionlogwidget.h
     fspathedit.h
     fspathedit_p.h
+    guiapplicationcomponent.h
     hidabletabwidget.h
+    interfaces/iguiapplication.h
     ipsubnetwhitelistoptionsdialog.h
     lineedit.h
     log/logfiltermodel.h
@@ -68,7 +80,6 @@ add_library(qbt_gui STATIC
     properties/pieceavailabilitybar.h
     properties/piecesbar.h
     properties/propertieswidget.h
-    properties/proplistdelegate.h
     properties/proptabbar.h
     properties/speedplotview.h
     properties/speedwidget.h
@@ -94,11 +105,12 @@ add_library(qbt_gui STATIC
     tagfilterwidget.h
     torrentcategorydialog.h
     torrentcontentfiltermodel.h
+    torrentcontentitemdelegate.h
     torrentcontentmodel.h
     torrentcontentmodelfile.h
     torrentcontentmodelfolder.h
     torrentcontentmodelitem.h
-    torrentcontenttreeview.h
+    torrentcontentwidget.h
     torrentcreatordialog.h
     torrentoptionsdialog.h
     trackerentriesdialog.h
@@ -113,6 +125,7 @@ add_library(qbt_gui STATIC
     utils.h
     watchedfolderoptionsdialog.h
     watchedfoldersmodel.h
+    windowstate.h
 
     # sources
     aboutdialog.cpp
@@ -126,10 +139,12 @@ add_library(qbt_gui STATIC
     cookiesdialog.cpp
     cookiesmodel.cpp
     deletionconfirmationdialog.cpp
+    desktopintegration.cpp
     downloadfromurldialog.cpp
     executionlogwidget.cpp
     fspathedit.cpp
     fspathedit_p.cpp
+    guiapplicationcomponent.cpp
     hidabletabwidget.cpp
     ipsubnetwhitelistoptionsdialog.cpp
     lineedit.cpp
@@ -149,7 +164,6 @@ add_library(qbt_gui STATIC
     properties/pieceavailabilitybar.cpp
     properties/piecesbar.cpp
     properties/propertieswidget.cpp
-    properties/proplistdelegate.cpp
     properties/proptabbar.cpp
     properties/speedplotview.cpp
     properties/speedwidget.cpp
@@ -175,11 +189,12 @@ add_library(qbt_gui STATIC
     tagfilterwidget.cpp
     torrentcategorydialog.cpp
     torrentcontentfiltermodel.cpp
+    torrentcontentitemdelegate.cpp
     torrentcontentmodel.cpp
     torrentcontentmodelfile.cpp
     torrentcontentmodelfolder.cpp
     torrentcontentmodelitem.cpp
-    torrentcontenttreeview.cpp
+    torrentcontentwidget.cpp
     torrentcreatordialog.cpp
     torrentoptionsdialog.cpp
     trackerentriesdialog.cpp
@@ -213,10 +228,22 @@ target_link_libraries(qbt_gui
 
 if (DBUS)
     target_sources(qbt_gui PRIVATE
-        qtnotify/notifications.h
-        qtnotify/notifications.cpp
+        notifications/dbusnotifier.h
+        notifications/dbusnotifier.cpp
+        notifications/dbusnotificationsinterface.h
+        notifications/dbusnotificationsinterface.cpp
         powermanagement/powermanagement_x11.h
         powermanagement/powermanagement_x11.cpp
+    )
+endif()
+
+if (STACKTRACE)
+    qt_wrap_ui(STACKTRACE_UI_HEADERS stacktracedialog.ui)
+
+    target_sources(qbt_gui PRIVATE
+        stacktracedialog.h
+        stacktracedialog.cpp
+        ${STACKTRACE_UI_HEADERS}
     )
 endif()
 

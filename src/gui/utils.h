@@ -28,29 +28,21 @@
 
 #pragma once
 
-#include <QSize>
-
 #include "base/pathfwd.h"
 
 class QIcon;
 class QPixmap;
 class QPoint;
+class QSize;
 class QWidget;
 
 namespace Utils::Gui
 {
-    void resize(QWidget *widget, const QSize &newSize = {});
-    qreal screenScalingFactor(const QWidget *widget);
-
-    template <typename T>
-    T scaledSize(const QWidget *widget, const T &size)
-    {
-        return (size * screenScalingFactor(widget));
-    }
+    bool isDarkTheme();
 
     QPixmap scaledPixmap(const QIcon &icon, const QWidget *widget, int height);
     QPixmap scaledPixmap(const Path &path, const QWidget *widget, int height = 0);
-    QPixmap scaledPixmapSvg(const Path &path, const QWidget *widget, int baseHeight);
+
     QSize smallIconSize(const QWidget *widget = nullptr);
     QSize mediumIconSize(const QWidget *widget = nullptr);
     QSize largeIconSize(const QWidget *widget = nullptr);

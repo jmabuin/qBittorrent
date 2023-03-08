@@ -1,5 +1,6 @@
 /*
  * Bittorrent Client using Qt and libtorrent.
+ * Copyright (C) 2022  Mike Tzou (Chocobo1)
  * Copyright (C) 2015, 2019  Vladimir Golovnev <glassez@yandex.ru>
  * Copyright (C) 2006  Christophe Dumez
  *
@@ -29,31 +30,26 @@
 
 #pragma once
 
+#include <QtGlobal>
+#include <QAtomicInt>
+#include <QCoreApplication>
 #include <QPointer>
 #include <QStringList>
 #include <QTranslator>
 
 #ifndef DISABLE_GUI
 #include <QApplication>
-using BaseApplication = QApplication;
-class MainWindow;
+#endif
 
-#ifdef Q_OS_WIN
-class QSessionManager;
-#endif // Q_OS_WIN
-
-#else
-#include <QCoreApplication>
-using BaseApplication = QCoreApplication;
-#endif // DISABLE_GUI
-
+#include "base/bittorrent/addtorrentparams.h"
+#include "base/interfaces/iapplication.h"
 #include "base/path.h"
 #include "base/settingvalue.h"
 #include "base/types.h"
 #include "cmdoptions.h"
 
-#ifndef DISABLE_WEBUI
-class WebUI;
+#ifndef DISABLE_GUI
+#include "gui/interfaces/iguiapplication.h"
 #endif
 
 class ApplicationInstanceManager;
@@ -70,7 +66,28 @@ namespace RSS
     class AutoDownloader;
 }
 
-class Application final : public BaseApplication
+#ifndef DISABLE_GUI
+class QProgressDialog;
+
+class DesktopIntegration;
+class MainWindow;
+
+using BaseApplication = QApplication;
+using BaseIApplication = IGUIApplication;
+
+#ifdef Q_OS_WIN
+class QSessionManager;
+#endif
+#else // DISABLE_GUI
+using BaseApplication = QCoreApplication;
+using BaseIApplication = IApplication;
+#endif // DISABLE_GUI
+
+#ifndef DISABLE_WEBUI
+class WebUI;
+#endif
+
+class Application final : public BaseApplication, public BaseIApplication
 {
     Q_OBJECT
     Q_DISABLE_COPY_MOVE(Application)
@@ -79,85 +96,94 @@ public:
     Application(int &argc, char **argv);
     ~Application() override;
 
+    int exec();
+
     bool isRunning();
-    int exec(const QStringList &params);
-    bool sendParams(const QStringList &params);
-
-#ifndef DISABLE_GUI
-    QPointer<MainWindow> mainWindow();
-#endif
-
+    bool callMainInstance();
     const QBtCommandLineParameters &commandLineArgs() const;
 
-#ifdef Q_OS_WIN
-    int memoryWorkingSetLimit() const;
-    void setMemoryWorkingSetLimit(int size);
-#endif
-
     // FileLogger properties
-    bool isFileLoggerEnabled() const;
-    void setFileLoggerEnabled(bool value);
-    Path fileLoggerPath() const;
-    void setFileLoggerPath(const Path &path);
-    bool isFileLoggerBackup() const;
-    void setFileLoggerBackup(bool value);
-    bool isFileLoggerDeleteOld() const;
-    void setFileLoggerDeleteOld(bool value);
-    int fileLoggerMaxSize() const;
-    void setFileLoggerMaxSize(int bytes);
-    int fileLoggerAge() const;
-    void setFileLoggerAge(int value);
-    int fileLoggerAgeType() const;
-    void setFileLoggerAgeType(int value);
+    bool isFileLoggerEnabled() const override;
+    void setFileLoggerEnabled(bool value) override;
+    Path fileLoggerPath() const override;
+    void setFileLoggerPath(const Path &path) override;
+    bool isFileLoggerBackup() const override;
+    void setFileLoggerBackup(bool value) override;
+    bool isFileLoggerDeleteOld() const override;
+    void setFileLoggerDeleteOld(bool value) override;
+    int fileLoggerMaxSize() const override;
+    void setFileLoggerMaxSize(int bytes) override;
+    int fileLoggerAge() const override;
+    void setFileLoggerAge(int value) override;
+    int fileLoggerAgeType() const override;
+    void setFileLoggerAgeType(int value) override;
 
-protected:
-#ifndef DISABLE_GUI
-#ifdef Q_OS_MACOS
-    bool event(QEvent *) override;
+    int memoryWorkingSetLimit() const override;
+    void setMemoryWorkingSetLimit(int size) override;
+
+#ifdef Q_OS_WIN
+    MemoryPriority processMemoryPriority() const override;
+    void setProcessMemoryPriority(MemoryPriority priority) override;
 #endif
+
+#ifndef DISABLE_GUI
+    DesktopIntegration *desktopIntegration() override;
+    MainWindow *mainWindow() override;
+
+    WindowState startUpWindowState() const override;
+    void setStartUpWindowState(WindowState windowState) override;
+
+    bool isTorrentAddedNotificationsEnabled() const override;
+    void setTorrentAddedNotificationsEnabled(bool value) override;
 #endif
 
 private slots:
     void processMessage(const QString &message);
-    void torrentFinished(BitTorrent::Torrent *const torrent);
+    void torrentAdded(const BitTorrent::Torrent *torrent) const;
+    void torrentFinished(const BitTorrent::Torrent *torrent);
     void allTorrentsFinished();
     void cleanup();
+
 #if (!defined(DISABLE_GUI) && defined(Q_OS_WIN))
     void shutdownCleanup(QSessionManager &manager);
 #endif
 
 private:
-#ifdef Q_OS_WIN
-    void applyMemoryWorkingSetLimit();
-#endif
     void initializeTranslation();
-    void processParams(const QStringList &params);
-    void runExternalProgram(const BitTorrent::Torrent *torrent) const;
+    void processParams(const QBtCommandLineParameters &params);
+    void runExternalProgram(const QString &programTemplate, const BitTorrent::Torrent *torrent) const;
     void sendNotificationEmail(const BitTorrent::Torrent *torrent);
 
-    ApplicationInstanceManager *m_instanceManager = nullptr;
-    bool m_running;
-    ShutdownDialogAction m_shutdownAct;
-    QBtCommandLineParameters m_commandLineArgs;
+#ifdef QBT_USES_LIBTORRENT2
+    void applyMemoryWorkingSetLimit() const;
+#endif
+
+#ifdef Q_OS_WIN
+    void applyMemoryPriority() const;
+    void adjustThreadPriority() const;
+#endif
 
 #ifndef DISABLE_GUI
-    QPointer<MainWindow> m_window;
+    void createStartupProgressDialog();
+#ifdef Q_OS_MACOS
+    bool event(QEvent *) override;
+#endif
 #endif
 
-#ifndef DISABLE_WEBUI
-    WebUI *m_webui = nullptr;
-#endif
+    ApplicationInstanceManager *m_instanceManager = nullptr;
+    QAtomicInt m_isCleanupRun;
+    bool m_isProcessingParamsAllowed = false;
+    ShutdownDialogAction m_shutdownAct;
+    QBtCommandLineParameters m_commandLineArgs;
 
     // FileLog
     QPointer<FileLogger> m_fileLogger;
 
     QTranslator m_qtTranslator;
     QTranslator m_translator;
-    QStringList m_paramsQueue;
 
-#ifdef Q_OS_WIN
-    SettingValue<int> m_storeMemoryWorkingSetLimit;
-#endif
+    QList<QBtCommandLineParameters> m_paramsQueue;
+
     SettingValue<bool> m_storeFileLoggerEnabled;
     SettingValue<bool> m_storeFileLoggerBackup;
     SettingValue<bool> m_storeFileLoggerDeleteOld;
@@ -165,4 +191,22 @@ private:
     SettingValue<int> m_storeFileLoggerAge;
     SettingValue<int> m_storeFileLoggerAgeType;
     SettingValue<Path> m_storeFileLoggerPath;
+    SettingValue<int> m_storeMemoryWorkingSetLimit;
+
+#ifdef Q_OS_WIN
+    SettingValue<MemoryPriority> m_processMemoryPriority;
+#endif
+
+#ifndef DISABLE_GUI
+    SettingValue<WindowState> m_startUpWindowState;
+    SettingValue<bool> m_storeNotificationTorrentAdded;
+
+    DesktopIntegration *m_desktopIntegration = nullptr;
+    MainWindow *m_window = nullptr;
+    QProgressDialog *m_startupProgressDialog = nullptr;
+#endif
+
+#ifndef DISABLE_WEBUI
+    WebUI *m_webui = nullptr;
+#endif
 };

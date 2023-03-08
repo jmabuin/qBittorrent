@@ -35,6 +35,7 @@ let serverSyncMainDataInterval = 1500;
 let customSyncMainDataInterval = null;
 let searchTabInitialized = false;
 let rssTabInitialized = false;
+let logTabInitialized = false;
 
 let syncRequestInProgress = false;
 
@@ -87,6 +88,12 @@ const loadSelectedTracker = function() {
 };
 loadSelectedTracker();
 
+const getShowFiltersSidebar = function() {
+    // Show Filters Sidebar is enabled by default
+    const show = LocalPreferences.get('show_filters_sidebar');
+    return (show === null) || (show === 'true');
+};
+
 function genHash(string) {
     // origins:
     // https://stackoverflow.com/a/8831937
@@ -106,7 +113,8 @@ const fetchQbtVersion = function() {
         url: 'api/v2/app/version',
         method: 'get',
         onSuccess: function(info) {
-            if (!info) return;
+            if (!info)
+                return;
             sessionStorage.setItem('qbtVersion', info);
         }
     }).send();
@@ -121,7 +129,6 @@ const qbtVersion = function() {
 };
 
 window.addEvent('load', function() {
-
     const saveColumnSizes = function() {
         const filters_width = $('Filters').getSize().x;
         const properties_height_rel = $('propertiesPanel').getSize().y / Window.getSize().y;
@@ -184,9 +191,21 @@ window.addEvent('load', function() {
         $("rssTabColumn").addClass("invisible");
     };
 
+    const buildLogTab = function() {
+        new MochaUI.Column({
+            id: 'logTabColumn',
+            placement: 'main',
+            width: null
+        });
+
+        // start off hidden
+        $('logTabColumn').addClass('invisible');
+    };
+
     buildTransfersTab();
     buildSearchTab();
     buildRssTab();
+    buildLogTab();
     MochaUI.initializeTabs('mainWindowTabsList');
 
     setCategoryFilter = function(hash) {
@@ -239,7 +258,7 @@ window.addEvent('load', function() {
     toggleFilterDisplay = function(filter) {
         const element = filter + "FilterList";
         LocalPreferences.set('filter_' + filter + "_collapsed", !$(element).hasClass("invisible"));
-        $(element).toggleClass("invisible")
+        $(element).toggleClass("invisible");
         const parent = $(element).getParent(".filterWrapper");
         const toggleIcon = $(parent).getChildren(".filterTitle img");
         if (toggleIcon)
@@ -284,6 +303,13 @@ window.addEvent('load', function() {
         $('desktopFooterWrapper').addClass('invisible');
     }
 
+    const showFiltersSidebar = getShowFiltersSidebar();
+    if (!showFiltersSidebar) {
+        $('showFiltersSidebarLink').firstChild.style.opacity = '0';
+        $('filtersColumn').addClass('invisible');
+        $('filtersColumn_handle').addClass('invisible');
+    }
+
     let speedInTitle = LocalPreferences.get('speed_in_browser_title_bar') == "true";
     if (!speedInTitle)
         $('speedInBrowserTitleBarLink').firstChild.style.opacity = '0';
@@ -291,6 +317,7 @@ window.addEvent('load', function() {
     // After showing/hiding the toolbar + status bar
     let showSearchEngine = LocalPreferences.get('show_search_engine') !== "false";
     let showRssReader = LocalPreferences.get('show_rss_reader') !== "false";
+    let showLogViewer = LocalPreferences.get('show_log_viewer') === 'true';
 
     // After Show Top Toolbar
     MochaUI.Desktop.setDesktopSize();
@@ -361,6 +388,12 @@ window.addEvent('load', function() {
         let added = false;
         for (let i = 0; i < tags.length; ++i) {
             const tagHash = genHash(tags[i].trim());
+            if (!tagList[tagHash]) { // This should not happen
+                tagList[tagHash] = {
+                    name: tags,
+                    torrents: []
+                };
+            }
             if (!Object.contains(tagList[tagHash].torrents, torrent['hash'])) {
                 added = true;
                 tagList[tagHash].torrents.push(torrent['hash']);
@@ -397,7 +430,7 @@ window.addEvent('load', function() {
 
         const create_link = function(hash, text, count) {
             const html = '<a href="#" onclick="setCategoryFilter(' + hash + ');return false;">'
-                + '<img src="icons/inode-directory.svg"/>'
+                + '<img src="images/view-categories.svg"/>'
                 + window.qBittorrent.Misc.escapeHtml(text) + ' (' + count + ')' + '</a>';
             const el = new Element('li', {
                 id: hash,
@@ -454,7 +487,7 @@ window.addEvent('load', function() {
 
         const createLink = function(hash, text, count) {
             const html = '<a href="#" onclick="setTagFilter(' + hash + ');return false;">'
-                + '<img src="icons/inode-directory.svg"/>'
+                + '<img src="images/tags.svg"/>'
                 + window.qBittorrent.Misc.escapeHtml(text) + ' (' + count + ')' + '</a>';
             const el = new Element('li', {
                 id: hash,
@@ -508,7 +541,7 @@ window.addEvent('load', function() {
 
         const createLink = function(hash, text, count) {
             const html = '<a href="#" onclick="setTrackerFilter(' + hash + ');return false;">'
-                + '<img src="icons/network-server.svg"/>'
+                + '<img src="images/trackers.svg"/>'
                 + window.qBittorrent.Misc.escapeHtml(text.replace("%1", count)) + '</a>';
             const el = new Element('li', {
                 id: hash,
@@ -748,15 +781,15 @@ window.addEvent('load', function() {
 
         switch (serverState.connection_status) {
             case 'connected':
-                $('connectionStatus').src = 'icons/connected.svg';
+                $('connectionStatus').src = 'images/connected.svg';
                 $('connectionStatus').alt = 'QBT_TR(Connection status: Connected)QBT_TR[CONTEXT=MainWindow]';
                 break;
             case 'firewalled':
-                $('connectionStatus').src = 'icons/firewalled.svg';
+                $('connectionStatus').src = 'images/firewalled.svg';
                 $('connectionStatus').alt = 'QBT_TR(Connection status: Firewalled)QBT_TR[CONTEXT=MainWindow]';
                 break;
             default:
-                $('connectionStatus').src = 'icons/disconnected.svg';
+                $('connectionStatus').src = 'images/disconnected.svg';
                 $('connectionStatus').alt = 'QBT_TR(Connection status: Disconnected)QBT_TR[CONTEXT=MainWindow]';
                 break;
         }
@@ -793,11 +826,11 @@ window.addEvent('load', function() {
 
     const updateAltSpeedIcon = function(enabled) {
         if (enabled) {
-            $('alternativeSpeedLimits').src = 'icons/slow.svg';
+            $('alternativeSpeedLimits').src = 'images/slow.svg';
             $('alternativeSpeedLimits').alt = 'QBT_TR(Alternative speed limits: On)QBT_TR[CONTEXT=MainWindow]';
         }
         else {
-            $('alternativeSpeedLimits').src = 'icons/slow_off.svg';
+            $('alternativeSpeedLimits').src = 'images/slow_off.svg';
             $('alternativeSpeedLimits').alt = 'QBT_TR(Alternative speed limits: Off)QBT_TR[CONTEXT=MainWindow]';
         }
     };
@@ -855,6 +888,22 @@ window.addEvent('load', function() {
         registerMagnetHandler();
     });
 
+    $('showFiltersSidebarLink').addEvent('click', function(e) {
+        const showFiltersSidebar = !getShowFiltersSidebar();
+        LocalPreferences.set('show_filters_sidebar', showFiltersSidebar.toString());
+        if (showFiltersSidebar) {
+            $('showFiltersSidebarLink').firstChild.style.opacity = '1';
+            $('filtersColumn').removeClass('invisible');
+            $('filtersColumn_handle').removeClass('invisible');
+        }
+        else {
+            $('showFiltersSidebarLink').firstChild.style.opacity = '0';
+            $('filtersColumn').addClass('invisible');
+            $('filtersColumn_handle').addClass('invisible');
+        }
+        MochaUI.Desktop.setDesktopSize();
+    });
+
     $('speedInBrowserTitleBarLink').addEvent('click', function(e) {
         speedInTitle = !speedInTitle;
         LocalPreferences.set('speed_in_browser_title_bar', speedInTitle.toString());
@@ -874,6 +923,12 @@ window.addEvent('load', function() {
     $('showRssReaderLink').addEvent('click', function(e) {
         showRssReader = !showRssReader;
         LocalPreferences.set('show_rss_reader', showRssReader.toString());
+        updateTabDisplay();
+    });
+
+    $('showLogViewerLink').addEvent('click', function(e) {
+        showLogViewer = !showLogViewer;
+        LocalPreferences.set('show_log_viewer', showLogViewer.toString());
         updateTabDisplay();
     });
 
@@ -906,8 +961,22 @@ window.addEvent('load', function() {
                 $("transfersTabLink").click();
         }
 
+        if (showLogViewer) {
+            $('showLogViewerLink').firstChild.style.opacity = '1';
+            $('mainWindowTabs').removeClass('invisible');
+            $('logTabLink').removeClass('invisible');
+            if (!MochaUI.Panels.instances.LogPanel)
+                addLogPanel();
+        }
+        else {
+            $('showLogViewerLink').firstChild.style.opacity = '0';
+            $('logTabLink').addClass('invisible');
+            if ($('logTabLink').hasClass('selected'))
+                $("transfersTabLink").click();
+        }
+
         // display no tabs
-        if (!showRssReader && !showSearchEngine)
+        if (!showRssReader && !showSearchEngine && !showLogViewer)
             $('mainWindowTabs').addClass('invisible');
     };
 
@@ -919,18 +988,21 @@ window.addEvent('load', function() {
         $("filtersColumn").removeClass("invisible");
         $("filtersColumn_handle").removeClass("invisible");
         $("mainColumn").removeClass("invisible");
+        $('torrentsFilterToolbar').removeClass("invisible");
 
         customSyncMainDataInterval = null;
         syncData(100);
 
         hideSearchTab();
         hideRssTab();
+        hideLogTab();
     };
 
     const hideTransfersTab = function() {
         $("filtersColumn").addClass("invisible");
         $("filtersColumn_handle").addClass("invisible");
         $("mainColumn").addClass("invisible");
+        $('torrentsFilterToolbar').addClass("invisible");
         MochaUI.Desktop.resizePanels();
     };
 
@@ -944,6 +1016,7 @@ window.addEvent('load', function() {
         customSyncMainDataInterval = 30000;
         hideTransfersTab();
         hideRssTab();
+        hideLogTab();
     };
 
     const hideSearchTab = function() {
@@ -964,12 +1037,35 @@ window.addEvent('load', function() {
         customSyncMainDataInterval = 30000;
         hideTransfersTab();
         hideSearchTab();
+        hideLogTab();
     };
 
     const hideRssTab = function() {
         $("rssTabColumn").addClass("invisible");
-        window.qBittorrent.Rss.unload();
+        window.qBittorrent.Rss && window.qBittorrent.Rss.unload();
         MochaUI.Desktop.resizePanels();
+    };
+
+    const showLogTab = function() {
+        if (!logTabInitialized) {
+            window.qBittorrent.Log.init();
+            logTabInitialized = true;
+        }
+        else {
+            window.qBittorrent.Log.load();
+        }
+
+        $('logTabColumn').removeClass('invisible');
+        customSyncMainDataInterval = 30000;
+        hideTransfersTab();
+        hideSearchTab();
+        hideRssTab();
+    };
+
+    const hideLogTab = function() {
+        $('logTabColumn').addClass('invisible');
+        MochaUI.Desktop.resizePanels();
+        window.qBittorrent.Log && window.qBittorrent.Log.unload();
     };
 
     const addSearchPanel = function() {
@@ -1006,6 +1102,42 @@ window.addEvent('load', function() {
             contentURL: 'views/rss.html',
             content: '',
             column: 'rssTabColumn',
+            height: null
+        });
+    };
+
+    var addLogPanel = function() {
+        new MochaUI.Panel({
+            id: 'LogPanel',
+            title: 'Log',
+            header: true,
+            padding: {
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0
+            },
+            loadMethod: 'xhr',
+            contentURL: 'views/log.html',
+            require: {
+                css: ['css/lib/vanillaSelectBox.css'],
+                js: ['scripts/lib/vanillaSelectBox.js'],
+            },
+            tabsURL: 'views/logTabs.html',
+            tabsOnload: function() {
+                MochaUI.initializeTabs('panelTabs');
+
+                $('logMessageLink').addEvent('click', function(e) {
+                    window.qBittorrent.Log.setCurrentTab('main');
+                });
+
+                $('logPeerLink').addEvent('click', function(e) {
+                    window.qBittorrent.Log.setCurrentTab('peer');
+                });
+            },
+            collapsible: false,
+            content: '',
+            column: 'logTabColumn',
             height: null
         });
     };
@@ -1150,7 +1282,100 @@ window.addEvent('load', function() {
     $('transfersTabLink').addEvent('click', showTransfersTab);
     $('searchTabLink').addEvent('click', showSearchTab);
     $('rssTabLink').addEvent('click', showRssTab);
+    $('logTabLink').addEvent('click', showLogTab);
     updateTabDisplay();
+
+    const registerDragAndDrop = () => {
+        $('desktop').addEventListener('dragover', (ev) => {
+            if (ev.preventDefault)
+                ev.preventDefault();
+        });
+
+        $('desktop').addEventListener('dragenter', (ev) => {
+            if (ev.preventDefault)
+                ev.preventDefault();
+        });
+
+        $('desktop').addEventListener("drop", (ev) => {
+            if (ev.preventDefault)
+                ev.preventDefault();
+
+            const droppedFiles = ev.dataTransfer.files;
+
+            if (droppedFiles.length > 0) {
+                // dropped files or folders
+
+                // can't handle folder due to cannot put the filelist (from dropped folder)
+                // to <input> `files` field
+                for (const item of ev.dataTransfer.items) {
+                    if (item.webkitGetAsEntry().isDirectory)
+                        return;
+                }
+
+                const id = 'uploadPage';
+                new MochaUI.Window({
+                    id: id,
+                    title: "QBT_TR(Upload local torrent)QBT_TR[CONTEXT=HttpServer]",
+                    loadMethod: 'iframe',
+                    contentURL: new URI("upload.html").toString(),
+                    addClass: 'windowFrame', // fixes iframe scrolling on iOS Safari
+                    scrollbars: true,
+                    maximizable: false,
+                    paddingVertical: 0,
+                    paddingHorizontal: 0,
+                    width: loadWindowWidth(id, 500),
+                    height: loadWindowHeight(id, 460),
+                    onResize: () => {
+                        saveWindowSize(id);
+                    },
+                    onContentLoaded: () => {
+                        const fileInput = $(`${id}_iframe`).contentDocument.getElementById('fileselect');
+                        fileInput.files = droppedFiles;
+                    }
+                });
+            }
+
+            const droppedText = ev.dataTransfer.getData("text");
+            if (droppedText.length > 0) {
+                // dropped text
+
+                const urls = droppedText.split('\n')
+                    .map((str) => str.trim())
+                    .filter((str) => {
+                        const lowercaseStr = str.toLowerCase();
+                        return lowercaseStr.startsWith("http:")
+                            || lowercaseStr.startsWith("https:")
+                            || lowercaseStr.startsWith("magnet:")
+                            || ((str.length === 40) && !(/[^0-9A-Fa-f]/.test(str))) // v1 hex-encoded SHA-1 info-hash
+                            || ((str.length === 32) && !(/[^2-7A-Za-z]/.test(str))); // v1 Base32 encoded SHA-1 info-hash
+                    });
+
+                if (urls.length <= 0)
+                    return;
+
+                const id = 'downloadPage';
+                const contentURI = new URI('download.html').setData("urls", urls.map(encodeURIComponent).join("|"));
+                new MochaUI.Window({
+                    id: id,
+                    title: "QBT_TR(Download from URLs)QBT_TR[CONTEXT=downloadFromURL]",
+                    loadMethod: 'iframe',
+                    contentURL: contentURI.toString(),
+                    addClass: 'windowFrame', // fixes iframe scrolling on iOS Safari
+                    scrollbars: true,
+                    maximizable: false,
+                    closable: true,
+                    paddingVertical: 0,
+                    paddingHorizontal: 0,
+                    width: loadWindowWidth(id, 500),
+                    height: loadWindowHeight(id, 600),
+                    onResize: () => {
+                        saveWindowSize(id);
+                    }
+                });
+            }
+        });
+    };
+    registerDragAndDrop();
 });
 
 function registerMagnetHandler() {
@@ -1162,11 +1387,11 @@ function registerMagnetHandler() {
         return;
     }
 
-    const hashParams = getHashParamsFromUrl();
-    hashParams.download = '';
+    const hashString = location.hash ? location.hash.replace(/^#/, '') : '';
+    const hashParams = new URLSearchParams(hashString);
+    hashParams.set('download', '');
 
-    const templateHashString = Object.toQueryString(hashParams).replace('download=', 'download=%s');
-
+    const templateHashString = hashParams.toString().replace('download=', 'download=%s');
     const templateUrl = location.origin + location.pathname
         + location.search + '#' + templateHashString;
 
@@ -1184,11 +1409,6 @@ function handleDownloadParam() {
     // Remove the processed hash from the URL
     history.replaceState('', document.title, (location.pathname + location.search));
     showDownloadPage([url]);
-}
-
-function getHashParamsFromUrl() {
-    const hashString = location.hash ? location.hash.replace(/^#/, '') : '';
-    return (hashString.length > 0) ? String.parseQueryString(hashString) : {};
 }
 
 function closeWindows() {
@@ -1223,14 +1443,26 @@ new Keyboard({
     defaultEventType: 'keydown',
     events: {
         'ctrl+a': function(event) {
+            if (event.target.nodeName == "INPUT" || event.target.nodeName == "TEXTAREA")
+                return;
+            if (event.target.isContentEditable)
+                return;
             torrentsTable.selectAll();
             event.preventDefault();
         },
         'delete': function(event) {
+            if (event.target.nodeName == "INPUT" || event.target.nodeName == "TEXTAREA")
+                return;
+            if (event.target.isContentEditable)
+                return;
             deleteFN();
             event.preventDefault();
         },
         'shift+delete': (event) => {
+            if (event.target.nodeName == "INPUT" || event.target.nodeName == "TEXTAREA")
+                return;
+            if (event.target.isContentEditable)
+                return;
             deleteFN(true);
             event.preventDefault();
         }

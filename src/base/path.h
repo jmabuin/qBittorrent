@@ -29,12 +29,17 @@
 
 #pragma once
 
+#include <filesystem>
+
+#include <QtGlobal>
 #include <QMetaType>
 #include <QString>
 
 #include "pathfwd.h"
 
-class Path final
+#include "base/interfaces/istringable.h"
+
+class Path final : public IStringable
 {
 public:
     Path() = default;
@@ -55,19 +60,21 @@ public:
     QString filename() const;
 
     QString extension() const;
-    bool hasExtension(const QString &ext) const;
+    bool hasExtension(QStringView ext) const;
     void removeExtension();
-    void removeExtension(const QString &ext);
+    Path removedExtension() const;
+    void removeExtension(QStringView ext);
+    Path removedExtension(QStringView ext) const;
 
     bool hasAncestor(const Path &other) const;
     Path relativePathOf(const Path &childPath) const;
 
     QString data() const;
-    QString toString() const;
+    QString toString() const override;
+    std::filesystem::path toStdFsPath() const;
 
     Path &operator/=(const Path &other);
-    Path &operator+=(const QString &str);
-    Path &operator+=(const std::string &str);
+    Path &operator+=(QStringView str);
 
     static Path commonPath(const Path &left, const Path &right);
 
@@ -76,7 +83,6 @@ public:
     static void addRootFolder(PathList &filePaths, const Path &rootFolder);
 
     friend Path operator/(const Path &lhs, const Path &rhs);
-    friend Path operator+(const Path &lhs, const QString &rhs);
 
 private:
     // this constructor doesn't perform any checks
@@ -90,10 +96,13 @@ Q_DECLARE_METATYPE(Path)
 
 bool operator==(const Path &lhs, const Path &rhs);
 bool operator!=(const Path &lhs, const Path &rhs);
-Path operator+(const Path &lhs, const char rhs[]);
-Path operator+(const Path &lhs, const std::string &rhs);
+Path operator+(const Path &lhs, QStringView rhs);
 
 QDataStream &operator<<(QDataStream &out, const Path &path);
 QDataStream &operator>>(QDataStream &in, Path &path);
 
-uint qHash(const Path &key, uint seed);
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+std::size_t qHash(const Path &key, std::size_t seed = 0);
+#else
+uint qHash(const Path &key, uint seed = 0);
+#endif

@@ -31,13 +31,12 @@
 #include <QtGlobal>
 
 #ifdef Q_OS_WIN
-#include <memory>
 #include <Windows.h>
 #endif
 
 #include <QString>
 
-#include "base/pathfwd.h"
+#include "base/path.h"
 
 enum class ShutdownDialogAction;
 
@@ -86,23 +85,16 @@ namespace Utils::Misc
     QString userFriendlyDuration(qlonglong seconds, qlonglong maxCap = -1);
     QString getUserIDString();
 
+    QString languageToLocalizedString(const QString &localeStr);
+
 #ifdef Q_OS_WIN
-    QString windowsSystemPath();
+    Path windowsSystemPath();
 
     template <typename T>
     T loadWinAPI(const QString &source, const char *funcName)
     {
-        QString path = windowsSystemPath();
-        if (!path.endsWith('\\'))
-            path += '\\';
-
-        path += source;
-
-        auto pathWchar = std::make_unique<wchar_t[]>(path.length() + 1);
-        path.toWCharArray(pathWchar.get());
-
-        return reinterpret_cast<T>(
-            ::GetProcAddress(::LoadLibraryW(pathWchar.get()), funcName));
+        const std::wstring path = (windowsSystemPath() / Path(source)).toString().toStdWString();
+        return reinterpret_cast<T>(::GetProcAddress(::LoadLibraryW(path.c_str()), funcName));
     }
 #endif // Q_OS_WIN
 }
